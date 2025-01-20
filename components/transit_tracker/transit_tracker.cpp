@@ -34,13 +34,16 @@ void TransitTracker::dump_config(){
   ESP_LOGCONFIG(TAG, "  Limit: %d", this->limit_);
 }
 
-void TransitTracker::close() {
-  this->fully_closed_ = true;
+void TransitTracker::close(bool fully) {
+  if (fully) {
+    this->fully_closed_ = true;
+  }
+
   this->ws_client_.close();
 }
 
 void TransitTracker::on_shutdown() {
-  this->close();
+  this->close(true);
 }
 
 void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
@@ -106,6 +109,11 @@ void TransitTracker::on_ws_event_(websockets::WebsocketsEvent event, String data
 }
 
 void TransitTracker::connect_ws_() {
+  if (this->base_url_.empty()) {
+    ESP_LOGW(TAG, "No base URL set, not connecting");
+    return;
+  }
+
   if (this->fully_closed_) {
     ESP_LOGW(TAG, "Connection fully closed, not reconnecting");
     return;
@@ -260,6 +268,11 @@ void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_righ
 void HOT TransitTracker::draw_schedule() {
   if (this->display_ == nullptr) {
     ESP_LOGW(TAG, "No display attached, cannot draw schedule");
+    return;
+  }
+
+  if (this->base_url_.empty()) {
+    this->draw_text_centered_("No base URL set", Color(0x252627));
     return;
   }
 
