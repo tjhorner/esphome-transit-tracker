@@ -34,7 +34,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_DISPLAY_ID): cv.use_id(Display),
         cv.GenerateID(CONF_FONT_ID): cv.use_id(Font),
         cv.GenerateID(CONF_TIME_ID): cv.use_id(RealTimeClock),
-        cv.Required(CONF_BASE_URL): validate_ws_url,
+        cv.Optional(CONF_BASE_URL): validate_ws_url,
         cv.Optional(CONF_LIMIT, default=3): cv.positive_int,
         cv.Optional(CONF_FEED_CODE, default=""): cv.string,
         cv.Optional(CONF_ROUTES, default=[]): cv.ensure_list(cv.Schema(
@@ -74,7 +74,9 @@ async def to_code(config):
     time = await cg.get_variable(config[CONF_TIME_ID])
     cg.add(var.set_rtc(time))
 
-    cg.add(var.set_base_url(config[CONF_BASE_URL]))
+    if CONF_BASE_URL in config:
+        cg.add(var.set_base_url(config[CONF_BASE_URL]))
+
     cg.add(var.set_feed_code(config[CONF_FEED_CODE]))
     cg.add(var.set_schedule_string(_generate_schedule_string(config[CONF_ROUTES])))
 
