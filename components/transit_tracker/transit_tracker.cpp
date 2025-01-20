@@ -34,6 +34,11 @@ void TransitTracker::dump_config(){
   ESP_LOGCONFIG(TAG, "  Limit: %d", this->limit_);
 }
 
+void TransitTracker::reconnect() {
+  this->close();
+  this->connect_ws_();
+}
+
 void TransitTracker::close(bool fully) {
   if (fully) {
     this->fully_closed_ = true;

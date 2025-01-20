@@ -27,6 +27,7 @@ class TransitTracker : public Component {
 
     float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
+    void reconnect();
     void close(bool fully = false);
 
     void draw_schedule();
