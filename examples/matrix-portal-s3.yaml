@@ -1,0 +1,99 @@
+esphome:
+  name: transit-tracker
+  friendly_name: Transit Tracker
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+external_components:
+  - source: github://TillFleisch/ESPHome-HUB75-MatrixDisplayWrapper@main
+  - source:
+      type: local
+      path: ../components
+
+logger:
+  level: DEBUG
+  logs:
+    sensor: ERROR
+    text_sensor: ERROR
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: ""
+  password: ""
+  power_save_mode: "NONE"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "TransitTracker Fallback Hotspot"
+    password: "59541bEJiaf3"
+
+display:
+  - platform: hub75_matrix_display
+    id: matrix
+    width: 64
+    height: 32
+    chain_length: 2
+    R1_pin: 42
+    G1_pin: 40
+    B1_pin: 41
+    R2_pin: 38
+    G2_pin: 37
+    B2_pin: 39
+    A_pin: 45
+    B_pin: 36
+    C_pin: 48
+    D_pin: 35
+    E_pin: 21
+    LAT_pin: 47
+    OE_pin: 14
+    CLK_pin: 2
+    clock_phase: false
+    i2sspeed: HZ_20M
+    brightness: 255
+    lambda: |-
+      id(tracker).draw_schedule();
+
+font:
+  - file: "fonts/Pixolletta8px.ttf"
+    id: pixolletta
+    size: 10
+    glyphs:
+      - abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:;!?()"'-+/*=%@#[]{}<>|&^~
+      - " "
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: America/Los_Angeles
+
+color:
+  - id: rapidride_red
+    hex: "F50046"
+
+transit_tracker:
+  id: tracker
+  base_url: "wss://tt.horner.tj/"
+  limit: 3
+  feed_code: "st"
+  routes:
+    - route_id: "1_100113" # 221
+      stop_id: "1_71971"
+    - route_id: "1_102704" # 250
+      stop_id: "1_71971"
+    - route_id: "1_102548" # B Line
+      stop_id: "1_71961"
+  styles:
+    - route_id: "1_102548"
+      name: "B"
+      color: rapidride_red
+  abbreviations:
+    - from: "Bellevue Transit Center Crossroads"
+      to: "Bellevue TC"
+    - from: "Transit Center"
+      to: "TC"

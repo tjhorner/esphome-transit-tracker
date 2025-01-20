@@ -1,0 +1,3 @@
+[submodule "esphome-src"]
+	path = esphome-src
+	url = https://github.com/esphome/esphome
