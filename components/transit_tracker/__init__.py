@@ -20,6 +20,7 @@ CONF_LIMIT = "limit"
 CONF_ABBREVIATIONS = "abbreviations"
 CONF_STYLES = "styles"
 CONF_FEED_CODE = "feed_code"
+CONF_DEFAULT_ROUTE_COLOR = "default_route_color"
 
 def validate_ws_url(value):
     url = cv.url(value)
@@ -43,6 +44,7 @@ CONFIG_SCHEMA = cv.Schema(
                 cv.Required("stop_id"): cv.string,
             }
         )),
+        cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
         cv.Optional(CONF_STYLES): cv.ensure_list(cv.Schema(
             {
                 cv.Required("route_id"): cv.string,
@@ -86,6 +88,9 @@ async def to_code(config):
       for abbreviation in config[CONF_ABBREVIATIONS]:
         cg.add(var.add_abbreviation(abbreviation["from"], abbreviation["to"]))
     
+    if CONF_DEFAULT_ROUTE_COLOR in config:
+        cg.add(var.set_default_route_color(await cg.get_variable(config[CONF_DEFAULT_ROUTE_COLOR])))
+
     if CONF_STYLES in config:
       for style in config[CONF_STYLES]:
         color_struct = await cg.get_variable(style["color"])

@@ -3,6 +3,8 @@
 #include <vector>
 #include <mutex>
 
+#include "esphome/components/display/display.h"
+
 namespace esphome {
 namespace transit_tracker {
 
@@ -10,6 +12,7 @@ class Trip {
   public:
     std::string route_id;
     std::string route_name;
+    Color route_color;
     std::string headsign;
     time_t arrival_time;
     bool is_realtime;

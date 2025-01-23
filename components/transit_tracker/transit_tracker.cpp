@@ -75,9 +75,23 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         }
       }
 
+      auto route_id = trip["routeId"].as<std::string>();
+      auto route_style = this->route_styles_.find(route_id);
+
+      Color route_color = this->default_route_color_;
+      std::string route_name = trip["routeName"].as<std::string>();
+
+      if (route_style != this->route_styles_.end()) {
+        route_color = route_style->second.color;
+        route_name = route_style->second.name;
+      } else if (!trip["routeColor"].isNull()) {
+        route_color = Color(std::stoul(trip["routeColor"].as<std::string>(), nullptr, 16));
+      }
+
       this->schedule_state_.trips.push_back({
-        .route_id = trip["routeId"].as<std::string>(),
-        .route_name = trip["routeName"].as<std::string>(),
+        .route_id = route_id,
+        .route_name = route_name,
+        .route_color = route_color,
         .headsign = headsign,
         .arrival_time = trip["arrivalTime"].as<time_t>(),
         .is_realtime = trip["isRealtime"].as<bool>(),
@@ -303,20 +317,10 @@ void HOT TransitTracker::draw_schedule() {
 
   int y_offset = 2;
   for (const Trip &trip : this->schedule_state_.trips) {
-    auto route_style = this->route_styles_.find(trip.route_id);
-
-    Color route_color = Color(0x028e51);
-    std::string route_name = trip.route_name;
-
-    if (route_style != this->route_styles_.end()) {
-      route_color = route_style->second.color;
-      route_name = route_style->second.name;
-    }
-
-    this->display_->print(0, y_offset, this->font_, route_color, display::TextAlign::TOP_LEFT, route_name.c_str());
+    this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
 
     int route_width, route_x_offset, route_baseline, route_height;
-    this->font_->measure(route_name.c_str(), &route_width, &route_x_offset, &route_baseline, &route_height);
+    this->font_->measure(trip.route_name.c_str(), &route_width, &route_x_offset, &route_baseline, &route_height);
 
     auto arrival_time = this->from_now_(trip.arrival_time);
 
