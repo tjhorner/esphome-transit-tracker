@@ -20,6 +20,7 @@ class Trip {
 
 class ScheduleState {
   public:
+    std::mutex mutex;
     std::vector<Trip> trips;
 };
 

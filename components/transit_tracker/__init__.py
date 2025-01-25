@@ -14,6 +14,7 @@ transit_tracker_ns = cg.esphome_ns.namespace("transit_tracker")
 TransitTracker = transit_tracker_ns.class_("TransitTracker", cg.PollingComponent)
 
 CONF_ROUTES = "routes"
+CONF_STOPS = "stops"
 CONF_BASE_URL = "base_url"
 CONF_FONT_ID = "font_id"
 CONF_LIMIT = "limit"
@@ -38,10 +39,11 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_BASE_URL): validate_ws_url,
         cv.Optional(CONF_LIMIT, default=3): cv.positive_int,
         cv.Optional(CONF_FEED_CODE, default=""): cv.string,
-        cv.Optional(CONF_ROUTES, default=[]): cv.ensure_list(cv.Schema(
+        cv.Optional(CONF_STOPS, default=[]): cv.ensure_list(cv.Schema(
             {
-                cv.Required("route_id"): cv.string,
                 cv.Required("stop_id"): cv.string,
+                cv.Optional("time_offset", default="0s"): cv.time_period,
+                cv.Required(CONF_ROUTES): cv.ensure_list(cv.string),
             }
         )),
         cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
@@ -61,8 +63,8 @@ CONFIG_SCHEMA = cv.Schema(
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
-def _generate_schedule_string(routes):
-    return ";".join([f"{route['route_id']},{route['stop_id']}" for route in routes])
+def _generate_schedule_string(stops):
+    return ";".join([f"{route},{stop['stop_id']},{stop['time_offset'].total_seconds}" for stop in stops for route in stop[CONF_ROUTES]])
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -80,7 +82,7 @@ async def to_code(config):
         cg.add(var.set_base_url(config[CONF_BASE_URL]))
 
     cg.add(var.set_feed_code(config[CONF_FEED_CODE]))
-    cg.add(var.set_schedule_string(_generate_schedule_string(config[CONF_ROUTES])))
+    cg.add(var.set_schedule_string(_generate_schedule_string(config[CONF_STOPS])))
 
     cg.add(var.set_limit(config[CONF_LIMIT]))
 

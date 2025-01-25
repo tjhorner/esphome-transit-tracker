@@ -26,7 +26,7 @@ You will need these components in your configuration:
 - [Font](https://esphome.io/components/font/)
 - [Time](https://esphome.io/components/time/)
 
-Then you can define an instance of the component in your configuration:
+Then you can define an instance of the component like so (note that this is a complete example; most parameters are optional):
 
 ```yaml
 transit_tracker:
@@ -41,19 +41,30 @@ transit_tracker:
   # Maximum number of arrivals to show
   limit: 3
 
-  # List of route/stop pairs to track
-  routes:
-    - route_id: "1_100113" # 221
-      stop_id: "1_71971"
-    - route_id: "1_102704" # 250
-      stop_id: "1_71971"
-    - route_id: "1_102548" # B Line
-      stop_id: "1_71961"
+  # Default color for route names
+  # (See https://esphome.io/components/display/#color)
+  default_route_color: my_favorite_color
+
+  # List of stop and route IDs to track
+  stops:
+    - stop_id: "1_71971"
+      # If it takes you a known amount of time to walk to the
+      # stop, you can set a time offset here so that the time
+      # displayed on the board is more like a "leave by" time
+      time_offset: -8min # e.g., if it takes you 8 minutes to walk to the stop
+      routes:
+        - "1_100113"
+        - "1_102704"
+    - stop_id: "1_71961"
+      time_offset: -10min
+      routes:
+        - "1_102548"
 
   # List of custom styles for route names and colors
   styles:
     - route_id: "1_102548"
       name: "B"
+      # See https://esphome.io/components/display/#color
       color: rapidride_red
 
   # List of custom abbreviations for headsigns

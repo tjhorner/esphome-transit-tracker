@@ -61,6 +61,8 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
 
     ESP_LOGD(TAG, "Received schedule update");
 
+    this->schedule_state_.mutex.lock();
+
     this->schedule_state_.trips.clear();
 
     auto data = root["data"].as<JsonObject>();
@@ -97,6 +99,8 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         .is_realtime = trip["isRealtime"].as<bool>(),
       });
     }
+
+    this->schedule_state_.mutex.unlock();
 
     return true;
   });
@@ -315,9 +319,20 @@ void HOT TransitTracker::draw_schedule() {
     return;
   }
 
+  this->schedule_state_.mutex.lock();
+
+  int max_route_width = 0;
+  int _;
+  for (const Trip &trip : this->schedule_state_.trips) {
+    int route_width;
+    this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
+
+    max_route_width = std::max(max_route_width, route_width);
+  }
+
   int y_offset = 2;
   for (const Trip &trip : this->schedule_state_.trips) {
-    this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
+    this->display_->print(max_route_width, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_RIGHT, trip.route_name.c_str());
 
     int route_width, route_x_offset, route_baseline, route_height;
     this->font_->measure(trip.route_name.c_str(), &route_width, &route_x_offset, &route_baseline, &route_height);
@@ -336,18 +351,19 @@ void HOT TransitTracker::draw_schedule() {
       int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
       int icon_bottom_right_y = y_offset + time_height - 6;
 
-      headsign_clipping_end = icon_bottom_right_x - 8;
+      headsign_clipping_end -= 8;
 
       this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y);
     }
 
     this->display_->start_clipping(0, 0, headsign_clipping_end, this->display_->get_height());
-    this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
+    this->display_->print(max_route_width + 2, y_offset, this->font_, trip.headsign.c_str());
     this->display_->end_clipping();
 
     y_offset += route_height;
   }
 
+  this->schedule_state_.mutex.unlock();
 }
 
 }  // namespace transit_tracker
