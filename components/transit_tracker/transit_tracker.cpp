@@ -321,18 +321,18 @@ void HOT TransitTracker::draw_schedule() {
 
   this->schedule_state_.mutex.lock();
 
-  int max_route_width = 0;
-  int _;
-  for (const Trip &trip : this->schedule_state_.trips) {
-    int route_width;
-    this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
+  // int max_route_width = 0;
+  // int _;
+  // for (const Trip &trip : this->schedule_state_.trips) {
+  //   int route_width;
+  //   this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
 
-    max_route_width = std::max(max_route_width, route_width);
-  }
+  //   max_route_width = std::max(max_route_width, route_width);
+  // }
 
   int y_offset = 2;
   for (const Trip &trip : this->schedule_state_.trips) {
-    this->display_->print(max_route_width, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_RIGHT, trip.route_name.c_str());
+    this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
 
     int route_width, route_x_offset, route_baseline, route_height;
     this->font_->measure(trip.route_name.c_str(), &route_width, &route_x_offset, &route_baseline, &route_height);
@@ -357,7 +357,7 @@ void HOT TransitTracker::draw_schedule() {
     }
 
     this->display_->start_clipping(0, 0, headsign_clipping_end, this->display_->get_height());
-    this->display_->print(max_route_width + 2, y_offset, this->font_, trip.headsign.c_str());
+    this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
     this->display_->end_clipping();
 
     y_offset += route_height;
