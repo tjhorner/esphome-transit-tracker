@@ -321,15 +321,6 @@ void HOT TransitTracker::draw_schedule() {
 
   this->schedule_state_.mutex.lock();
 
-  // int max_route_width = 0;
-  // int _;
-  // for (const Trip &trip : this->schedule_state_.trips) {
-  //   int route_width;
-  //   this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
-
-  //   max_route_width = std::max(max_route_width, route_width);
-  // }
-
   int y_offset = 2;
   for (const Trip &trip : this->schedule_state_.trips) {
     this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
