@@ -25,6 +25,11 @@ void TransitTracker::setup() {
 
 void TransitTracker::loop() {
   this->ws_client_.poll();
+
+  if (this->last_heartbeat_ != 0 && millis() - this->last_heartbeat_ > 60000) {
+    ESP_LOGW(TAG, "Heartbeat timeout, reconnecting");
+    this->reconnect();
+  }
 }
 
 void TransitTracker::dump_config(){
@@ -55,6 +60,12 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
   ESP_LOGV(TAG, "Received message: %s", message.rawData().c_str());
 
   bool valid = json::parse_json(message.rawData(), [this](JsonObject root) -> bool {
+    if (root["event"].as<std::string>() == "heartbeat") {
+      ESP_LOGD(TAG, "Received heartbeat");
+      this->last_heartbeat_ = millis();
+      return true;
+    }
+
     if (root["event"].as<std::string>() != "schedule") {
       return true;
     }
@@ -142,12 +153,14 @@ void TransitTracker::connect_ws_() {
     return;
   }
 
-  watchdog::WatchdogManager wdm(20000);
-
-  if (this->ws_client_.available()) {
+  if (this->ws_client_.available(true)) {
     ESP_LOGV(TAG, "Not reconnecting, already connected");
     return;
   }
+
+  watchdog::WatchdogManager wdm(20000);
+
+  this->last_heartbeat_ = 0;
 
   ESP_LOGD(TAG, "Connecting to WebSocket server (attempt %d): %s", this->connection_attempts_, this->base_url_.c_str());
 

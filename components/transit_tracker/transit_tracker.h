@@ -65,6 +65,7 @@ class TransitTracker : public Component {
     void on_ws_event_(websockets::WebsocketsEvent event, String data);
     void connect_ws_();
     int connection_attempts_ = 0;
+    long last_heartbeat_ = 0;
     bool has_ever_connected_ = false;
     bool fully_closed_ = false;
 
