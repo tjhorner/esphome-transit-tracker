@@ -307,6 +307,16 @@ void HOT TransitTracker::draw_schedule() {
     return;
   }
 
+  if (!esphome::network::is_connected()) {
+    this->draw_text_centered_("Waiting for network", Color(0x252627));
+    return;
+  }
+
+  if (!this->rtc_->now().is_valid()) {
+    this->draw_text_centered_("Waiting for time sync", Color(0x252627));
+    return;
+  }
+
   if (this->base_url_.empty()) {
     this->draw_text_centered_("No base URL set", Color(0x252627));
     return;
@@ -317,13 +327,8 @@ void HOT TransitTracker::draw_schedule() {
     return;
   }
 
-  if (!this->rtc_->now().is_valid()) {
-    this->draw_text_centered_("Waiting for time sync", Color(0x252627));
-    return;
-  }
-
   if (!this->has_ever_connected_) {
-    this->draw_text_centered_("Waiting for connection", Color(0x252627));
+    this->draw_text_centered_("Loading...", Color(0x252627));
     return;
   }
 
