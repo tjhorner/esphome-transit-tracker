@@ -435,6 +435,7 @@ void HOT TransitTracker::draw_schedule() {
     int time_width, time_x_offset, time_baseline, time_height;
     this->font_->measure(time_display.c_str(), &time_width, &time_x_offset, &time_baseline, &time_height);
 
+    int headsign_clipping_start = route_width + 3;
     int headsign_clipping_end = this->display_->get_width() - time_width - 2;
 
     Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
@@ -449,8 +450,50 @@ void HOT TransitTracker::draw_schedule() {
       this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y);
     }
 
-    this->display_->start_clipping(0, 0, headsign_clipping_end, this->display_->get_height());
-    this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
+    int scroll_offset = 0;
+    {
+      /// TODO: The scroll may jump if headsign_clipping_end changes (e.g. due to the width of the arrival time changing).
+      int headsign_max_width = headsign_clipping_end - headsign_clipping_start;
+      int headsign_actual_width, _;
+      this->font_->measure(trip.headsign.c_str(), &headsign_actual_width, &_, &_, &_);
+      int overflow_width = headsign_actual_width - headsign_max_width;
+      if(overflow_width > 0) {
+        constexpr int scroll_speed = 10; // pixels/second
+        constexpr int idle_time_left = 2000;
+        constexpr int idle_time_right = 1000;
+
+        long now = millis();
+
+        int scroll_time = overflow_width * 1000 / scroll_speed;
+        int scroll_cycle_duration = idle_time_left + idle_time_right + (2 * scroll_time);
+        int scroll_cycle_time = now % scroll_cycle_duration;
+
+        // Scroll idle (left side - default)
+        if(scroll_cycle_time < idle_time_left) {
+          // scroll_offset = 0; do nothing
+        }
+
+        // Scrolling left
+        else if(scroll_cycle_time < idle_time_left + scroll_time) {
+          int time_since_scroll_start = scroll_cycle_time - idle_time_left;
+          scroll_offset = time_since_scroll_start * scroll_speed / 1000;
+        }
+
+        // Scroll idle (right side)
+        else if(scroll_cycle_time < idle_time_left + scroll_time + idle_time_right) {
+          scroll_offset = overflow_width;
+        }
+
+        // Scrolling right
+        else {
+          int time_since_scroll_start = scroll_cycle_time - (idle_time_left + scroll_time + idle_time_right);
+          scroll_offset = overflow_width - (time_since_scroll_start * scroll_speed / 1000);
+        }
+      }
+    }
+
+    this->display_->start_clipping(headsign_clipping_start, 0, headsign_clipping_end, this->display_->get_height());
+    this->display_->print(headsign_clipping_start - scroll_offset, y_offset, this->font_, trip.headsign.c_str());
     this->display_->end_clipping();
 
     y_offset += nominal_font_height;
