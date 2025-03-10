@@ -195,6 +195,11 @@ void TransitTracker::set_abbreviations_from_text(const std::string &text) {
   this->abbreviations_.clear();
   for (const auto &line : split(text, '\n')) {
     auto parts = split(line, ';');
+    if (parts.size() == 1) {
+      // If only one part is provided, treat it as a removal (replace with empty string)
+      this->add_abbreviation(parts[0], "");
+      continue;
+    }
     if (parts.size() != 2) {
       ESP_LOGW(TAG, "Invalid abbreviation line: %s", line.c_str());
       continue;
