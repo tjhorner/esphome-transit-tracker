@@ -38,6 +38,7 @@ class TransitTracker : public Component {
 
     void set_base_url(const std::string &base_url) { base_url_ = base_url; }
     void set_feed_code(const std::string &feed_code) { feed_code_ = feed_code; }
+    void set_display_departure_times(bool display_departure_times) { display_departure_times_ = display_departure_times; }
     void set_schedule_string(const std::string &schedule_string) { schedule_string_ = schedule_string; }
     void set_limit(int limit) { limit_ = limit; }
 
@@ -71,6 +72,7 @@ class TransitTracker : public Component {
 
     std::string base_url_;
     std::string feed_code_;
+    bool display_departure_times_ = true;
     std::string schedule_string_;
     std::map<std::string, std::string> abbreviations_;
     Color default_route_color_ = Color(0x028e51);

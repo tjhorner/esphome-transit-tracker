@@ -45,6 +45,9 @@ transit_tracker:
   # (See https://esphome.io/components/display/#color)
   default_route_color: my_favorite_color
 
+  # Whether to display arrival or departure times
+  time_display: departure # or "arrival"
+
   # List of stop and route IDs to track
   stops:
     - stop_id: "1_71971"
