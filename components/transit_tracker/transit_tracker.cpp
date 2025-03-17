@@ -126,8 +126,18 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
 void TransitTracker::on_ws_event_(websockets::WebsocketsEvent event, String data) {
   if (event == websockets::WebsocketsEvent::ConnectionOpened) {
     ESP_LOGD(TAG, "WebSocket connection opened");
-    auto sort_by_departure = this->display_departure_times_ ? "true" : "false";
-    std::string message = "{\"event\":\"schedule:subscribe\",\"data\":{\"feedCode\":\"" + this->feed_code_ + "\",\"routeStopPairs\":\"" + this->schedule_string_ + "\",\"limit\":" + std::to_string(this->limit_) + ",\"sortByDeparture\":" + sort_by_departure + "}}";
+
+    auto message = json::build_json([this](JsonObject root) {
+      root["event"] = "schedule:subscribe";
+
+      auto data = root.createNestedObject("data");
+      data["feedCode"] = this->feed_code_;
+      data["routeStopPairs"] = this->schedule_string_;
+      data["limit"] = this->limit_;
+      data["sortByDeparture"] = this->display_departure_times_;
+      data["listMode"] = this->list_mode_;
+    });
+
     ESP_LOGV(TAG, "Sending message: %s", message.c_str());
     this->ws_client_.send(message.c_str());
   } else if (event == websockets::WebsocketsEvent::ConnectionClosed) {

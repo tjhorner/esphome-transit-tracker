@@ -48,6 +48,11 @@ transit_tracker:
   # Whether to display arrival or departure times
   time_display: departure # or "arrival"
 
+  # How to list trips:
+  #   sequential: All trips across all routes in order of arrival/departure
+  #   nextPerRoute: Each route's next trip in order of arrival/departure
+  list_mode: sequential
+
   # List of stop and route IDs to track
   stops:
     - stop_id: "1_71971"
