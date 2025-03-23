@@ -397,7 +397,13 @@ void HOT TransitTracker::draw_schedule() {
         head_color = Color(0xa7a7a7);
       }
 
-      // Print times right-aligned, each preceded by an icon if realtime
+      // Trim trip_list to the first TRIP_LIMIT trips
+      int TRIP_LIMIT = 3;
+      if (trip_list.size() > TRIP_LIMIT) {
+        trip_list.erase(trip_list.begin() + TRIP_LIMIT, trip_list.end());
+      }
+
+      // Print times right-aligned
       int right_margin = this->display_->get_width();
       bool first_segment = true;
       for (int i = trip_list.size() - 1; i >= 0; i--) {
