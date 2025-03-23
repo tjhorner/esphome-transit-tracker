@@ -45,6 +45,14 @@ transit_tracker:
   # (See https://esphome.io/components/display/#color)
   default_route_color: my_favorite_color
 
+  # Whether to display arrival or departure times
+  time_display: departure # or "arrival"
+
+  # How to list trips:
+  #   sequential: All trips across all routes in order of arrival/departure
+  #   nextPerRoute: Each route's next trip in order of arrival/departure
+  list_mode: sequential
+
   # List of stop and route IDs to track
   stops:
     - stop_id: "1_71971"

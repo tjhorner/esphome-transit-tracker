@@ -107,6 +107,7 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         .route_color = route_color,
         .headsign = headsign,
         .arrival_time = trip["arrivalTime"].as<time_t>(),
+        .departure_time = trip["departureTime"].as<time_t>(),
         .is_realtime = trip["isRealtime"].as<bool>(),
       });
     }
@@ -125,7 +126,18 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
 void TransitTracker::on_ws_event_(websockets::WebsocketsEvent event, String data) {
   if (event == websockets::WebsocketsEvent::ConnectionOpened) {
     ESP_LOGD(TAG, "WebSocket connection opened");
-    std::string message = "{\"event\":\"schedule:subscribe\",\"data\":{\"feedCode\":\"" + this->feed_code_ + "\",\"routeStopPairs\":\"" + this->schedule_string_ + "\",\"limit\":" + std::to_string(this->limit_) + "}}";
+
+    auto message = json::build_json([this](JsonObject root) {
+      root["event"] = "schedule:subscribe";
+
+      auto data = root.createNestedObject("data");
+      data["feedCode"] = this->feed_code_;
+      data["routeStopPairs"] = this->schedule_string_;
+      data["limit"] = this->limit_;
+      data["sortByDeparture"] = this->display_departure_times_;
+      data["listMode"] = this->list_mode_;
+    });
+
     ESP_LOGV(TAG, "Sending message: %s", message.c_str());
     this->ws_client_.send(message.c_str());
   } else if (event == websockets::WebsocketsEvent::ConnectionClosed) {
@@ -338,7 +350,12 @@ void HOT TransitTracker::draw_schedule() {
   }
 
   if (this->schedule_state_.trips.empty()) {
-    this->draw_text_centered_("No upcoming arrivals", Color(0x252627));
+    auto message = "No upcoming arrivals";
+    if (this->display_departure_times_) {
+      message = "No upcoming departures";
+    }
+
+    this->draw_text_centered_(message, Color(0x252627));
     return;
   }
 
@@ -351,15 +368,15 @@ void HOT TransitTracker::draw_schedule() {
     int route_width, route_x_offset, route_baseline, route_height;
     this->font_->measure(trip.route_name.c_str(), &route_width, &route_x_offset, &route_baseline, &route_height);
 
-    auto arrival_time = this->from_now_(trip.arrival_time);
+    auto time_display = this->from_now_(this->display_departure_times_ ? trip.departure_time : trip.arrival_time);
 
     int time_width, time_x_offset, time_baseline, time_height;
-    this->font_->measure(arrival_time.c_str(), &time_width, &time_x_offset, &time_baseline, &time_height);
+    this->font_->measure(time_display.c_str(), &time_width, &time_x_offset, &time_baseline, &time_height);
 
     int headsign_clipping_end = this->display_->get_width() - time_width - 2;
 
     Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
-    this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, arrival_time.c_str());
+    this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
 
     if (trip.is_realtime) {
       int icon_bottom_right_x = this->display_->get_width() - time_width - 2;

@@ -15,6 +15,7 @@ class Trip {
     Color route_color;
     std::string headsign;
     time_t arrival_time;
+    time_t departure_time;
     bool is_realtime;
 };
 
