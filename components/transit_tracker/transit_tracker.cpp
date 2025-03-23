@@ -261,13 +261,13 @@ std::string TransitTracker::from_now_(time_t unix_timestamp) const {
   }
 
   if (diff < 60) {
-    return "0min";
+    return "<1m";
   }
 
   int minutes = diff / 60;
 
   if (minutes < 60) {
-    return str_sprintf("%dmin", minutes);
+    return str_sprintf("%dm", minutes);
   }
 
   int hours = minutes / 60;
@@ -352,58 +352,106 @@ void HOT TransitTracker::draw_schedule() {
     return;
   }
   if (this->schedule_state_.trips.empty()) {
-    auto message = this->display_departure_times_ ? "No upcoming departures"
-                                                 : "No upcoming arrivals";
+    auto message = this->display_departure_times_ ? "No upcoming departures" : "No upcoming arrivals";
     this->draw_text_centered_(message, Color(0x252627));
     return;
   }
 
-  // Lock the schedule_state
   this->schedule_state_.mutex.lock();
 
   if (this->display_mode_ == "destination") {
-    // Group by headsign
+    // Gather trips by headsign
     std::map<std::string, std::vector<const Trip *>> destinations;
     for (auto &trip : this->schedule_state_.trips) {
       destinations[trip.headsign].push_back(&trip);
     }
 
-    int y_offset = 2;
-    for (auto &entry : destinations) {
-      const std::string &headsign = entry.first;
-      auto &trip_list = entry.second;
+    // We want to show Seattle first, then Bellevue, then everything else
+    std::vector<std::string> ordered_heads;
+    if (destinations.find("Seattle") != destinations.end())
+      ordered_heads.push_back("Seattle");
+    if (destinations.find("Bellevue") != destinations.end())
+      ordered_heads.push_back("Bellevue");
+    for (auto &it : destinations) {
+      if (it.first != "Seattle" && it.first != "Bellevue") {
+        ordered_heads.push_back(it.first);
+      }
+    }
 
-      // Sort each group by departure/arrival time
+    int y_offset = 2;
+    for (auto &head : ordered_heads) {
+      auto &trip_list = destinations[head];
       std::sort(trip_list.begin(), trip_list.end(), [this](const Trip *a, const Trip *b) {
-        auto a_time = this->display_departure_times_ ? a->departure_time : a->arrival_time;
-        auto b_time = this->display_departure_times_ ? b->departure_time : b->arrival_time;
-        return a_time < b_time;
+        time_t at = this->display_departure_times_ ? a->departure_time : a->arrival_time;
+        time_t bt = this->display_departure_times_ ? b->departure_time : b->arrival_time;
+        return at < bt;
       });
 
-      // Build comma-separated list of times
-      std::string time_str;
-      for (auto *t : trip_list) {
-        auto display_time = this->from_now_(
-          this->display_departure_times_ ? t->departure_time : t->arrival_time
-        );
-        if (!time_str.empty()) {
-          time_str += ", ";
-        }
-        time_str += display_time;
+      // Hardcoded colors
+      Color head_color;
+      if (head == "Seattle") {
+        head_color = Color(0x3e54b6);
+      } else if (head == "Bellevue") {
+        head_color = Color(0x9135ed);
+      } else {
+        head_color = Color(0xa7a7a7);
       }
 
-      // e.g. "Seattle ... 2min, 10min, 30min"
-      std::string line_str = headsign + " ... " + time_str;
+      // Print times right-aligned, each preceded by an icon if realtime
+      int right_margin = this->display_->get_width();
+      bool first_segment = true;
+      for (int i = trip_list.size() - 1; i >= 0; i--) {
+        const Trip *t = trip_list[i];
+        std::string disp_time = this->from_now_(
+          this->display_departure_times_ ? t->departure_time : t->arrival_time
+        );
 
-      this->display_->print(0, y_offset, this->font_, Color(0xFFFFFF),
-                            display::TextAlign::TOP_LEFT, line_str.c_str());
+        // Add ", " if it's not the last segment to display
+        if (!first_segment) {
+          disp_time += ", ";
+        }
+        first_segment = false;
 
-      int text_w, x_offset, baseline, line_h;
-      this->font_->measure(line_str.c_str(), &text_w, &x_offset, &baseline, &line_h);
-      y_offset += line_h + 2;
+        // Measure text
+        int time_w, x_off, baseline, time_h;
+        this->font_->measure(disp_time.c_str(), &time_w, &x_off, &baseline, &time_h);
+
+        // total width = icon + text
+        int total_w = time_w;
+        if (t->is_realtime) {
+          total_w += 3;
+        }
+        right_margin -= total_w;
+
+        // If realtime, draw icon first
+        if (t->is_realtime) {
+          int icon_y = y_offset + time_h - 6; 
+          this->draw_realtime_icon_(right_margin, icon_y);
+          // Shift text start right of the icon
+          this->display_->print(
+            right_margin + 3, y_offset,
+            this->font_, Color(0x20FF00),
+            display::TextAlign::TOP_LEFT, disp_time.c_str());
+        } else {
+          // Just print the time
+          this->display_->print(
+            right_margin, y_offset,
+            this->font_, Color(0xa7a7a7),
+            display::TextAlign::TOP_LEFT, disp_time.c_str());
+        }
+      }
+
+      // Print the headsign at the left
+      this->display_->start_clipping(0, 0, right_margin - 8, this->display_->get_height());
+      this->display_->print(0, y_offset, this->font_, head_color, head.c_str());
+      this->display_->end_clipping();
+
+      // Move down
+      int w, x_off, bs, lh;
+      this->font_->measure(head.c_str(), &w, &x_off, &bs, &lh);
+      y_offset += lh + 2;
     }
   } else {
-    // Existing "sequential" approach
     int y_offset = 2;
     for (const Trip &trip : this->schedule_state_.trips) {
       this->display_->print(0, y_offset, this->font_, trip.route_color,
@@ -422,7 +470,6 @@ void HOT TransitTracker::draw_schedule() {
                            &time_baseline, &time_height);
 
       int headsign_clipping_end = this->display_->get_width() - time_width - 2;
-
       Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
       this->display_->print(this->display_->get_width() + 1, y_offset, this->font_,
                             time_color, display::TextAlign::TOP_RIGHT,
@@ -438,12 +485,10 @@ void HOT TransitTracker::draw_schedule() {
       this->display_->start_clipping(0, 0, headsign_clipping_end, this->display_->get_height());
       this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
       this->display_->end_clipping();
-
       y_offset += route_height;
     }
   }
 
-  // Unlock
   this->schedule_state_.mutex.unlock();
 }
 
