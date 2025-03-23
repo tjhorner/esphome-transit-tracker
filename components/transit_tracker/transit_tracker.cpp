@@ -203,6 +203,14 @@ void TransitTracker::connect_ws_() {
   }
 }
 
+void TransitTracker::set_display_mode_from_text(const std::string &text) {
+  if (text == "destination") {
+    this->set_display_mode("destination");
+  } else {
+    this->set_display_mode("sequential");
+  }
+}
+
 void TransitTracker::set_abbreviations_from_text(const std::string &text) {
   this->abbreviations_.clear();
   for (const auto &line : split(text, '\n')) {
@@ -323,77 +331,119 @@ void HOT TransitTracker::draw_schedule() {
     ESP_LOGW(TAG, "No display attached, cannot draw schedule");
     return;
   }
-
   if (!esphome::network::is_connected()) {
     this->draw_text_centered_("Waiting for network", Color(0x252627));
     return;
   }
-
   if (!this->rtc_->now().is_valid()) {
     this->draw_text_centered_("Waiting for time sync", Color(0x252627));
     return;
   }
-
   if (this->base_url_.empty()) {
     this->draw_text_centered_("No base URL set", Color(0x252627));
     return;
   }
-
   if (this->status_has_error()) {
     this->draw_text_centered_("Error loading schedule", Color(0xFE4C5C));
     return;
   }
-
   if (!this->has_ever_connected_) {
     this->draw_text_centered_("Loading...", Color(0x252627));
     return;
   }
-
   if (this->schedule_state_.trips.empty()) {
-    auto message = "No upcoming arrivals";
-    if (this->display_departure_times_) {
-      message = "No upcoming departures";
-    }
-
+    auto message = this->display_departure_times_ ? "No upcoming departures"
+                                                 : "No upcoming arrivals";
     this->draw_text_centered_(message, Color(0x252627));
     return;
   }
 
+  // Lock the schedule_state
   this->schedule_state_.mutex.lock();
 
-  int y_offset = 2;
-  for (const Trip &trip : this->schedule_state_.trips) {
-    this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
-
-    int route_width, route_x_offset, route_baseline, route_height;
-    this->font_->measure(trip.route_name.c_str(), &route_width, &route_x_offset, &route_baseline, &route_height);
-
-    auto time_display = this->from_now_(this->display_departure_times_ ? trip.departure_time : trip.arrival_time);
-
-    int time_width, time_x_offset, time_baseline, time_height;
-    this->font_->measure(time_display.c_str(), &time_width, &time_x_offset, &time_baseline, &time_height);
-
-    int headsign_clipping_end = this->display_->get_width() - time_width - 2;
-
-    Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
-    this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
-
-    if (trip.is_realtime) {
-      int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
-      int icon_bottom_right_y = y_offset + time_height - 6;
-
-      headsign_clipping_end -= 8;
-
-      this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y);
+  if (this->display_mode_ == "destination") {
+    // Group by headsign
+    std::map<std::string, std::vector<const Trip *>> destinations;
+    for (auto &trip : this->schedule_state_.trips) {
+      destinations[trip.headsign].push_back(&trip);
     }
 
-    this->display_->start_clipping(0, 0, headsign_clipping_end, this->display_->get_height());
-    this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
-    this->display_->end_clipping();
+    int y_offset = 2;
+    for (auto &entry : destinations) {
+      const std::string &headsign = entry.first;
+      auto &trip_list = entry.second;
 
-    y_offset += route_height;
+      // Sort each group by departure/arrival time
+      std::sort(trip_list.begin(), trip_list.end(), [this](const Trip *a, const Trip *b) {
+        auto a_time = this->display_departure_times_ ? a->departure_time : a->arrival_time;
+        auto b_time = this->display_departure_times_ ? b->departure_time : b->arrival_time;
+        return a_time < b_time;
+      });
+
+      // Build comma-separated list of times
+      std::string time_str;
+      for (auto *t : trip_list) {
+        auto display_time = this->from_now_(
+          this->display_departure_times_ ? t->departure_time : t->arrival_time
+        );
+        if (!time_str.empty()) {
+          time_str += ", ";
+        }
+        time_str += display_time;
+      }
+
+      // e.g. "Seattle ... 2min, 10min, 30min"
+      std::string line_str = headsign + " ... " + time_str;
+
+      this->display_->print(0, y_offset, this->font_, Color(0xFFFFFF),
+                            display::TextAlign::TOP_LEFT, line_str.c_str());
+
+      int text_w, x_offset, baseline, line_h;
+      this->font_->measure(line_str.c_str(), &text_w, &x_offset, &baseline, &line_h);
+      y_offset += line_h + 2;
+    }
+  } else {
+    // Existing "sequential" approach
+    int y_offset = 2;
+    for (const Trip &trip : this->schedule_state_.trips) {
+      this->display_->print(0, y_offset, this->font_, trip.route_color,
+                            display::TextAlign::TOP_LEFT, trip.route_name.c_str());
+
+      int route_width, route_x_offset, route_baseline, route_height;
+      this->font_->measure(trip.route_name.c_str(), &route_width, &route_x_offset,
+                           &route_baseline, &route_height);
+
+      auto time_display = this->from_now_(
+        this->display_departure_times_ ? trip.departure_time : trip.arrival_time
+      );
+
+      int time_width, time_x_offset, time_baseline, time_height;
+      this->font_->measure(time_display.c_str(), &time_width, &time_x_offset,
+                           &time_baseline, &time_height);
+
+      int headsign_clipping_end = this->display_->get_width() - time_width - 2;
+
+      Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
+      this->display_->print(this->display_->get_width() + 1, y_offset, this->font_,
+                            time_color, display::TextAlign::TOP_RIGHT,
+                            time_display.c_str());
+
+      if (trip.is_realtime) {
+        int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
+        int icon_bottom_right_y = y_offset + time_height - 6;
+        headsign_clipping_end -= 8;
+        this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y);
+      }
+
+      this->display_->start_clipping(0, 0, headsign_clipping_end, this->display_->get_height());
+      this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
+      this->display_->end_clipping();
+
+      y_offset += route_height;
+    }
   }
 
+  // Unlock
   this->schedule_state_.mutex.unlock();
 }
 
