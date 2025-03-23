@@ -416,33 +416,23 @@ void HOT TransitTracker::draw_schedule() {
         int time_w, x_off, baseline, time_h;
         this->font_->measure(disp_time.c_str(), &time_w, &x_off, &baseline, &time_h);
 
-        // total width = icon + text
-        int total_w = time_w;
-        if (t->is_realtime) {
-          total_w += 3;
-        }
-        right_margin -= total_w;
+        right_margin -= time_w;
 
-        // If realtime, draw icon first
+        Color time_color;
         if (t->is_realtime) {
-          int icon_y = y_offset + time_h - 6; 
-          this->draw_realtime_icon_(right_margin, icon_y);
-          // Shift text start right of the icon
-          this->display_->print(
-            right_margin + 3, y_offset,
-            this->font_, Color(0x20FF00),
-            display::TextAlign::TOP_LEFT, disp_time.c_str());
+          time_color = Color(0x20FF00);
         } else {
-          // Just print the time
-          this->display_->print(
-            right_margin, y_offset,
-            this->font_, Color(0xa7a7a7),
-            display::TextAlign::TOP_LEFT, disp_time.c_str());
+          time_color = Color(0xa7a7a7);
         }
+
+        this->display_->print(
+          right_margin, y_offset,
+          this->font_, time_color,
+          display::TextAlign::TOP_LEFT, disp_time.c_str());
       }
 
       // Print the headsign at the left
-      this->display_->start_clipping(0, 0, right_margin - 8, this->display_->get_height());
+      this->display_->start_clipping(0, 0, right_margin - 4, this->display_->get_height());
       this->display_->print(0, y_offset, this->font_, head_color, head.c_str());
       this->display_->end_clipping();
 
