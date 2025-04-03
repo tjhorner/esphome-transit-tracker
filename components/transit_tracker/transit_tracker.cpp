@@ -131,7 +131,11 @@ void TransitTracker::on_ws_event_(websockets::WebsocketsEvent event, String data
       root["event"] = "schedule:subscribe";
 
       auto data = root.createNestedObject("data");
-      data["feedCode"] = this->feed_code_;
+
+      if (!this->feed_code_.empty()) {
+        data["feedCode"] = this->feed_code_;
+      }
+
       data["routeStopPairs"] = this->schedule_string_;
       data["limit"] = this->limit_;
       data["sortByDeparture"] = this->display_departure_times_;
@@ -248,19 +252,41 @@ std::string TransitTracker::from_now_(time_t unix_timestamp) const {
   }
 
   if (diff < 60) {
-    return "0min";
+    switch (this->unit_display_) {
+      case UNIT_DISPLAY_LONG:
+        return "0min";
+      case UNIT_DISPLAY_SHORT:
+        return "0m";
+      case UNIT_DISPLAY_NONE:
+        return "0";
+    }
   }
 
   int minutes = diff / 60;
 
   if (minutes < 60) {
-    return str_sprintf("%dmin", minutes);
+    switch (this->unit_display_) {
+      case UNIT_DISPLAY_LONG:
+        return str_sprintf("%dmin", minutes);
+      case UNIT_DISPLAY_SHORT:
+        return str_sprintf("%dm", minutes);
+      case UNIT_DISPLAY_NONE:
+      default:
+        return str_sprintf("%d", minutes);
+    }
   }
 
   int hours = minutes / 60;
   minutes = minutes % 60;
 
-  return str_sprintf("%dh%dm", hours, minutes);
+  switch (this->unit_display_) {
+    case UNIT_DISPLAY_LONG:
+    case UNIT_DISPLAY_SHORT:
+      return str_sprintf("%dh%dm", hours, minutes);
+    case UNIT_DISPLAY_NONE:
+    default:
+      return str_sprintf("%d:%02d", hours, minutes);
+  }
 }
 
 const uint8_t realtime_icon[6][6] = {

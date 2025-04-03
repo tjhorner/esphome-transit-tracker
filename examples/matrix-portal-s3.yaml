@@ -3,7 +3,7 @@ esphome:
   friendly_name: Transit Tracker
 
 esp32:
-  board: esp32-s3-devkitc-1
+  board: adafruit-matrixportal-esp32s3
   framework:
     type: arduino
 

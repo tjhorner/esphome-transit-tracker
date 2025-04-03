@@ -18,6 +18,12 @@ struct RouteStyle {
   Color color;
 };
 
+enum UnitDisplay : uint8_t {
+  UNIT_DISPLAY_LONG,
+  UNIT_DISPLAY_SHORT,
+  UNIT_DISPLAY_NONE
+};
+
 class TransitTracker : public Component {
   public:
     void setup() override;
@@ -43,6 +49,7 @@ class TransitTracker : public Component {
     void set_list_mode(const std::string &list_mode) { list_mode_ = list_mode; }
     void set_limit(int limit) { limit_ = limit; }
 
+    void set_unit_display(UnitDisplay unit_display) { unit_display_ = unit_display; }
     void add_abbreviation(const std::string &from, const std::string &to) { abbreviations_[from] = to; }
     void set_default_route_color(const Color &color) { default_route_color_ = color; }
     void add_route_style(const std::string &route_id, const std::string &name, const Color &color) { route_styles_[route_id] = RouteStyle{name, color}; }
@@ -78,6 +85,7 @@ class TransitTracker : public Component {
     bool display_departure_times_ = true;
     int limit_;
 
+    UnitDisplay unit_display_ = UNIT_DISPLAY_LONG;
     std::map<std::string, std::string> abbreviations_;
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;
