@@ -2,6 +2,7 @@
 #include "string_utils.h"
 
 #include "esphome/core/log.h"
+#include "esphome/core/application.h"
 #include "esphome/components/json/json_util.h"
 #include "esphome/components/watchdog/watchdog.h"
 #include "esphome/components/network/util.h"
