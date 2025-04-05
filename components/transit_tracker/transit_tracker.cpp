@@ -21,6 +21,33 @@ void TransitTracker::setup() {
   });
 
   this->connect_ws_();
+
+  this->set_interval("check_stale_trips", 10000, [this]() {
+    if (this->ws_client_.available() && !this->schedule_state_.trips.empty()) {
+      bool has_stale_trips = false;
+
+      this->schedule_state_.mutex.lock();
+
+      auto now = this->rtc_->now();
+      if (now.is_valid()) {
+        for (auto &trip : this->schedule_state_.trips) {
+          if (now.timestamp - trip.departure_time > 60) {
+            has_stale_trips = true;
+            break;
+          }
+        }
+      }
+
+      this->schedule_state_.mutex.unlock();
+
+      if (has_stale_trips) {
+        ESP_LOGD(TAG, "Stale trips detected, reconnecting");
+        ESP_LOGD(TAG, "  Current RTC time: %d", now.timestamp);
+        ESP_LOGD(TAG, "  Last heartbeat: %d", this->last_heartbeat_);
+        this->reconnect();
+      }
+    }
+  });
 }
 
 void TransitTracker::loop() {
@@ -29,14 +56,18 @@ void TransitTracker::loop() {
   if (this->last_heartbeat_ != 0 && millis() - this->last_heartbeat_ > 60000) {
     ESP_LOGW(TAG, "Heartbeat timeout, reconnecting");
     this->reconnect();
+    return;
   }
 }
 
-void TransitTracker::dump_config(){
+void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "Transit Tracker:");
   ESP_LOGCONFIG(TAG, "  Base URL: %s", this->base_url_.c_str());
   ESP_LOGCONFIG(TAG, "  Schedule: %s", this->schedule_string_.c_str());
   ESP_LOGCONFIG(TAG, "  Limit: %d", this->limit_);
+  ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
+  ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
+  ESP_LOGCONFIG(TAG, "  Unit display: %s", this->unit_display_ == UNIT_DISPLAY_LONG ? "long" : this->unit_display_ == UNIT_DISPLAY_SHORT ? "short" : "none");
 }
 
 void TransitTracker::reconnect() {
@@ -53,6 +84,7 @@ void TransitTracker::close(bool fully) {
 }
 
 void TransitTracker::on_shutdown() {
+  this->cancel_interval("check_stale_trips");
   this->close(true);
 }
 
@@ -192,6 +224,12 @@ void TransitTracker::connect_ws_() {
 
     if (this->connection_attempts_ >= 3) {
       this->status_set_error("Failed to connect to WebSocket server");
+    }
+
+    if (this->connection_attempts_ >= 15) {
+      ESP_LOGE(TAG, "Could not connect to WebSocket server within 15 attempts.");
+      ESP_LOGE(TAG, "It's likely that the network is not truly connected; rebooting the device to try to recover.");
+      App.reboot();
     }
 
     auto timeout = std::min(15000, this->connection_attempts_ * 5000);
