@@ -438,7 +438,7 @@ void HOT TransitTracker::draw_schedule() {
       }
 
       // Print the headsign at the left
-      this->display_->start_clipping(0, 0, right_margin - 4, this->display_->get_height());
+      this->display_->start_clipping(0, 0, right_margin - 2, this->display_->get_height());
       this->display_->print(0, y_offset, this->font_, head_color, head.c_str());
       this->display_->end_clipping();
 

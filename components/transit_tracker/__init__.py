@@ -38,7 +38,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_TIME_ID): cv.use_id(RealTimeClock),
 
         cv.Optional(CONF_BASE_URL): validate_ws_url,
-        cv.Optional(CONF_LIMIT, default=3): cv.positive_int,
+        cv.Optional(CONF_LIMIT, default=10): cv.positive_int,
         cv.Optional(CONF_FEED_CODE, default=""): cv.string,
         cv.Optional(CONF_TIME_DISPLAY, default="departure"): cv.one_of(
             "departure", "arrival"
@@ -73,9 +73,7 @@ CONFIG_SCHEMA = cv.Schema(
                 }
             )
         ),
-
-        # New display_mode:
-        cv.Optional(CONF_DISPLAY_MODE, default="sequential"): cv.one_of(
+        cv.Optional(CONF_DISPLAY_MODE, default="destination"): cv.one_of(
             "sequential", "destination", upper=False
         ),
     }
@@ -105,7 +103,6 @@ async def to_code(config):
     if CONF_BASE_URL in config:
         cg.add(var.set_base_url(config[CONF_BASE_URL]))
 
-    # feed_code is defined, so we can safely set it
     cg.add(var.set_feed_code(config[CONF_FEED_CODE]))
 
     cg.add(var.set_schedule_string(_generate_schedule_string(config[CONF_STOPS])))
@@ -116,7 +113,6 @@ async def to_code(config):
     cg.add(var.set_list_mode(config[CONF_LIST_MODE]))
     cg.add(var.set_limit(config[CONF_LIMIT]))
 
-    # new display_mode
     cg.add(var.set_display_mode(config[CONF_DISPLAY_MODE]))
 
     if CONF_ABBREVIATIONS in config:
@@ -136,6 +132,8 @@ async def to_code(config):
 
     cg.add_library("WiFiClientSecure", None)
     cg.add_library("HTTPClient", None)
+
+    # Fork contains patch for TLS issue - https://github.com/gilmaimon/ArduinoWebsockets/pull/142
     cg.add_library(
         "ArduinoWebsockets", None, "https://github.com/tjhorner/ArduinoWebsockets"
     )
