@@ -3,13 +3,21 @@ import esphome.config_validation as cv
 from esphome.components.display import Display
 from esphome.components.font import Font
 from esphome.components.time import RealTimeClock
-from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID
+from esphome.components import color
+from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS
 
 DEPENDENCIES = ["network"]
 AUTO_LOAD = ["json", "watchdog"]
 
 transit_tracker_ns = cg.esphome_ns.namespace("transit_tracker")
 TransitTracker = transit_tracker_ns.class_("TransitTracker", cg.PollingComponent)
+
+UnitDisplay = transit_tracker_ns.enum("UnitDisplay")
+UNIT_DISPLAY_VALUES = {
+    "long": UnitDisplay.UNIT_DISPLAY_LONG,
+    "short": UnitDisplay.UNIT_DISPLAY_SHORT,
+    "none": UnitDisplay.UNIT_DISPLAY_NONE,
+}
 
 CONF_ROUTES = "routes"
 CONF_STOPS = "stops"
@@ -55,13 +63,14 @@ CONFIG_SCHEMA = cv.Schema(
                 }
             )
         ),
-        cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(cg.global_ns("color.ColorStruct")),
+        cv.Optional(CONF_SHOW_UNITS, default="long"): cv.enum(UNIT_DISPLAY_VALUES),
+        cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
         cv.Optional(CONF_STYLES): cv.ensure_list(
             cv.Schema(
                 {
                     cv.Required("route_id"): cv.string,
                     cv.Required("name"): cv.string,
-                    cv.Required("color"): cv.use_id(cg.global_ns("color.ColorStruct")),
+                    cv.Required("color"): cv.use_id(color.ColorStruct),
                 }
             )
         ),
@@ -113,6 +122,7 @@ async def to_code(config):
     cg.add(var.set_list_mode(config[CONF_LIST_MODE]))
     cg.add(var.set_limit(config[CONF_LIMIT]))
 
+    cg.add(var.set_unit_display(config[CONF_SHOW_UNITS]))
     cg.add(var.set_display_mode(config[CONF_DISPLAY_MODE]))
 
     if CONF_ABBREVIATIONS in config:

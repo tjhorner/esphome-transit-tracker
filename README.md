@@ -35,15 +35,11 @@ transit_tracker:
   # Base URL of the Transit Tracker API
   base_url: "wss://tt.horner.tj/"
 
-  # The feed code of the transit agency you want to track
+  # The feed code of the transit agency you want to track (optional)
   feed_code: "st"
 
   # Maximum number of arrivals to show
   limit: 3
-
-  # Default color for route names
-  # (See https://esphome.io/components/display/#color)
-  default_route_color: my_favorite_color
 
   # Whether to display arrival or departure times
   time_display: departure # or "arrival"
@@ -52,6 +48,17 @@ transit_tracker:
   #   sequential: All trips across all routes in order of arrival/departure
   #   nextPerRoute: Each route's next trip in order of arrival/departure
   list_mode: sequential
+
+  # Default color for route names
+  # (See https://esphome.io/components/display/#color)
+  default_route_color: my_favorite_color
+
+  # How to display the duration units.
+  # Examples:
+  #   long  = "5min" / "1h15m"
+  #   short = "5m"   / "1h15m"
+  #   none  = "5"    / "1:15"
+  show_units: long
 
   # List of stop and route IDs to track
   stops:
