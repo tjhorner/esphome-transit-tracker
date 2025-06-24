@@ -421,6 +421,8 @@ void HOT TransitTracker::draw_schedule() {
 
   this->schedule_state_.mutex.lock();
 
+  int nominal_font_height = this->font_->get_ascender() + this->font_->get_descender();
+
   int y_offset = 2;
   for (const Trip &trip : this->schedule_state_.trips) {
     this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
@@ -440,7 +442,7 @@ void HOT TransitTracker::draw_schedule() {
 
     if (trip.is_realtime) {
       int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
-      int icon_bottom_right_y = y_offset + time_height - 6;
+      int icon_bottom_right_y = y_offset + nominal_font_height - 6;
 
       headsign_clipping_end -= 8;
 
@@ -451,7 +453,7 @@ void HOT TransitTracker::draw_schedule() {
     this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
     this->display_->end_clipping();
 
-    y_offset += route_height;
+    y_offset += nominal_font_height;
   }
 
   this->schedule_state_.mutex.unlock();
