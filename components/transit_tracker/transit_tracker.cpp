@@ -343,8 +343,8 @@ void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_righ
   const int anim_frame_duration = 200;
   const int cycle_duration = idle_frame_duration + (num_frames - 1) * anim_frame_duration;
 
-  long now = millis();
-  long cycle_time = now % cycle_duration;
+  unsigned long now = millis();
+  unsigned long cycle_time = now % cycle_duration;
 
   int frame;
   if (cycle_time < idle_frame_duration) {

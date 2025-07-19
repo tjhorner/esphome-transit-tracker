@@ -2,7 +2,7 @@
 
 This is an external component for [ESPHome](https://esphome.io/) that fetches and renders a live arrivals board for any transit agency supported by the [Transit Tracker API](https://github.com/tjhorner/transit-tracker-api).
 
-This component is used by the [DIY Transit Countdown Clock](https://github.com/EastsideUrbanism/transit-countdown-clock) project. Check it out if you want to build your own!
+This component is used by the [Transit Tracker](https://transit-tracker.eastsideurbanism.org/) project. Check it out if you want to build your own!
 
 ## Note
 

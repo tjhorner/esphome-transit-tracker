@@ -5,7 +5,9 @@ from esphome.components.display import Display
 from esphome.components.font import Font
 from esphome.components.time import RealTimeClock
 from esphome.components import color
-from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS
+from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS, __version__ as ESPHOME_VERSION
+
+_MINIMUM_ESPHOME_VERSION = "2025.7.0"
 
 DEPENDENCIES = ["network"]
 AUTO_LOAD = ["json", "watchdog"]
@@ -41,51 +43,63 @@ def validate_ws_url(value):
     return url
 
 
-CONFIG_SCHEMA = cv.Schema(
-    {
-        cv.GenerateID(): cv.declare_id(TransitTracker),
-        cv.GenerateID(CONF_DISPLAY_ID): cv.use_id(Display),
-        cv.GenerateID(CONF_FONT_ID): cv.use_id(Font),
-        cv.GenerateID(CONF_TIME_ID): cv.use_id(RealTimeClock),
-        cv.Optional(CONF_BASE_URL): validate_ws_url,
-        cv.Optional(CONF_LIMIT, default=3): cv.positive_int,
-        cv.Optional(CONF_FEED_CODE, default=""): cv.string,
-        cv.Optional(CONF_TIME_DISPLAY, default="departure"): cv.one_of(
-            "departure", "arrival"
-        ),
-        cv.Optional(CONF_LIST_MODE, default="sequential"): cv.one_of(
-            "sequential", "nextPerRoute"
-        ),
-        cv.Optional(CONF_STOPS, default=[]): cv.ensure_list(
-            cv.Schema(
-                {
-                    cv.Required("stop_id"): cv.string,
-                    cv.Optional("time_offset", default="0s"): cv.time_period,
-                    cv.Required(CONF_ROUTES): cv.ensure_list(cv.string),
-                }
-            )
-        ),
-        cv.Optional(CONF_SHOW_UNITS, default="long"): cv.enum(UNIT_DISPLAY_VALUES),
-        cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
-        cv.Optional(CONF_STYLES): cv.ensure_list(
-            cv.Schema(
-                {
-                    cv.Required("route_id"): cv.string,
-                    cv.Required("name"): cv.string,
-                    cv.Required("color"): cv.use_id(color.ColorStruct),
-                }
-            )
-        ),
-        cv.Optional(CONF_ABBREVIATIONS): cv.ensure_list(
-            cv.Schema(
-                {
-                    cv.Required("from"): cv.string,
-                    cv.Required("to"): cv.string,
-                }
-            )
-        ),
-    }
-).extend(cv.COMPONENT_SCHEMA)
+def validate_esphome_version(obj):
+    if cv.Version.parse(ESPHOME_VERSION) < cv.Version.parse(_MINIMUM_ESPHOME_VERSION):
+        raise cv.Invalid(
+            "The transit_tracker component requires ESPHome version " +
+            f"{_MINIMUM_ESPHOME_VERSION} or later."
+        )
+    return obj
+
+
+CONFIG_SCHEMA = cv.All(
+    validate_esphome_version,
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.declare_id(TransitTracker),
+            cv.GenerateID(CONF_DISPLAY_ID): cv.use_id(Display),
+            cv.GenerateID(CONF_FONT_ID): cv.use_id(Font),
+            cv.GenerateID(CONF_TIME_ID): cv.use_id(RealTimeClock),
+            cv.Optional(CONF_BASE_URL): validate_ws_url,
+            cv.Optional(CONF_LIMIT, default=3): cv.positive_int,
+            cv.Optional(CONF_FEED_CODE, default=""): cv.string,
+            cv.Optional(CONF_TIME_DISPLAY, default="departure"): cv.one_of(
+                "departure", "arrival"
+            ),
+            cv.Optional(CONF_LIST_MODE, default="sequential"): cv.one_of(
+                "sequential", "nextPerRoute"
+            ),
+            cv.Optional(CONF_STOPS, default=[]): cv.ensure_list(
+                cv.Schema(
+                    {
+                        cv.Required("stop_id"): cv.string,
+                        cv.Optional("time_offset", default="0s"): cv.time_period,
+                        cv.Required(CONF_ROUTES): cv.ensure_list(cv.string),
+                    }
+                )
+            ),
+            cv.Optional(CONF_SHOW_UNITS, default="long"): cv.enum(UNIT_DISPLAY_VALUES),
+            cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
+            cv.Optional(CONF_STYLES): cv.ensure_list(
+                cv.Schema(
+                    {
+                        cv.Required("route_id"): cv.string,
+                        cv.Required("name"): cv.string,
+                        cv.Required("color"): cv.use_id(color.ColorStruct),
+                    }
+                )
+            ),
+            cv.Optional(CONF_ABBREVIATIONS): cv.ensure_list(
+                cv.Schema(
+                    {
+                        cv.Required("from"): cv.string,
+                        cv.Required("to"): cv.string,
+                    }
+                )
+            ),
+        }
+    ).extend(cv.COMPONENT_SCHEMA),
+)
 
 
 def _generate_schedule_string(stops):
@@ -143,7 +157,7 @@ async def to_code(config):
 
     await cg.register_component(var, config)
 
-    cg.add_library("WiFiClientSecure", None)
+    cg.add_library("NetworkClientSecure", None)
     cg.add_library("HTTPClient", None)
 
     # Fork contains patch for TLS issue - https://github.com/gilmaimon/ArduinoWebsockets/pull/142
