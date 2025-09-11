@@ -69,6 +69,7 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
   ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
   ESP_LOGCONFIG(TAG, "  Unit display: %s", this->unit_display_ == UNIT_DISPLAY_LONG ? "long" : this->unit_display_ == UNIT_DISPLAY_SHORT ? "short" : "none");
+  ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
 }
 
 void TransitTracker::reconnect() {
@@ -451,8 +452,11 @@ void HOT TransitTracker::draw_schedule() {
     }
 
     int scroll_offset = 0;
-    {
-      /// TODO: The scroll may jump if headsign_clipping_end changes (e.g. due to the width of the arrival time changing).
+    if(this->scroll_headsigns_) {
+      /// Note: The scroll may jump if headsign_clipping_end changes (e.g. due to the width of the arrival time changing).
+      /// This is probably not a big deal, since the display makes sudden changes anyway (e.g. when routes are updated)
+      /// and this happens relatively infrequently.
+
       int headsign_max_width = headsign_clipping_end - headsign_clipping_start;
       int headsign_actual_width, _;
       this->font_->measure(trip.headsign.c_str(), &headsign_actual_width, &_, &_, &_);
