@@ -13,7 +13,7 @@ DEPENDENCIES = ["network"]
 AUTO_LOAD = ["json", "watchdog"]
 
 transit_tracker_ns = cg.esphome_ns.namespace("transit_tracker")
-TransitTracker = transit_tracker_ns.class_("TransitTracker", cg.PollingComponent)
+TransitTracker = transit_tracker_ns.class_("TransitTracker", cg.Component)
 
 UnitDisplay = transit_tracker_ns.enum("UnitDisplay")
 UNIT_DISPLAY_VALUES = {
