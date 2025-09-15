@@ -463,7 +463,7 @@ void HOT TransitTracker::draw_schedule() {
       int overflow_width = headsign_actual_width - headsign_max_width;
       if(overflow_width > 0) {
         constexpr int scroll_speed = 10; // pixels/second
-        constexpr int idle_time_left = 2000;
+        constexpr int idle_time_left = 3000;
         constexpr int idle_time_right = 1000;
 
         long now = millis();
