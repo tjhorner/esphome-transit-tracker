@@ -279,10 +279,6 @@ void TransitTracker::draw_text_centered_(const char *text, Color color) {
 }
 
 std::string TransitTracker::from_now_(time_t unix_timestamp, uint rtc_now) const {
-  if (this->rtc_ == nullptr) {
-    return "";
-  }
-
   int diff = unix_timestamp - rtc_now;
 
   if (diff < 30) {
