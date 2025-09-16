@@ -278,14 +278,12 @@ void TransitTracker::draw_text_centered_(const char *text, Color color) {
   this->display_->print(display_center_x, display_center_y, this->font_, color, display::TextAlign::CENTER, text);
 }
 
-std::string TransitTracker::from_now_(time_t unix_timestamp) const {
+std::string TransitTracker::from_now_(time_t unix_timestamp, uint rtc_now) const {
   if (this->rtc_ == nullptr) {
     return "";
   }
 
-  uint now = this->rtc_->now().timestamp;
-
-  int diff = unix_timestamp - now;
+  int diff = unix_timestamp - rtc_now;
 
   if (diff < 30) {
     return "Now";
@@ -338,14 +336,13 @@ const uint8_t realtime_icon[6][6] = {
   {3, 0, 2, 0, 1, 1}
 };
 
-void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_right_y) {
+void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_right_y, unsigned long uptime) {
   const int num_frames = 6;
   const int idle_frame_duration = 3000;
   const int anim_frame_duration = 200;
   const int cycle_duration = idle_frame_duration + (num_frames - 1) * anim_frame_duration;
 
-  unsigned long now = millis();
-  unsigned long cycle_time = now % cycle_duration;
+  unsigned long cycle_time = uptime % cycle_duration;
 
   int frame;
   if (cycle_time < idle_frame_duration) {
@@ -379,7 +376,10 @@ void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_righ
   }
 }
 
-void TransitTracker::draw_trip(const Trip &trip, int y_offset, int font_height, bool no_draw, int *headsign_overflow_out, int scroll_cycle_duration) {
+void TransitTracker::draw_trip(
+    const Trip &trip, int y_offset, int font_height, unsigned long uptime, uint rtc_now,
+    bool no_draw, int *headsign_overflow_out, int scroll_cycle_duration
+) {
     if (!no_draw) {
       this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
     }
@@ -387,7 +387,10 @@ void TransitTracker::draw_trip(const Trip &trip, int y_offset, int font_height, 
     int route_width, _;
     this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
 
-    auto time_display = this->from_now_(this->display_departure_times_ ? trip.departure_time : trip.arrival_time);
+    auto time_display = this->from_now_(
+      this->display_departure_times_ ? trip.departure_time : trip.arrival_time,
+      rtc_now
+    );
 
     int time_width;
     this->font_->measure(time_display.c_str(), &time_width, &_, &_, &_);
@@ -407,7 +410,7 @@ void TransitTracker::draw_trip(const Trip &trip, int y_offset, int font_height, 
         int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
         int icon_bottom_right_y = y_offset + font_height - 6;
 
-        this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y);
+        this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y, uptime);
       }
     }
 
@@ -431,10 +434,8 @@ void TransitTracker::draw_trip(const Trip &trip, int y_offset, int font_height, 
       /// This is probably not a big deal, since the display makes sudden changes anyway (e.g. when routes are updated)
       /// and this happens relatively infrequently.
 
-      long now = millis();
-
       int scroll_time = headsign_overflow * 1000 / scroll_speed;
-      int scroll_cycle_time = now % scroll_cycle_duration;
+      int scroll_cycle_time = uptime % scroll_cycle_duration;
 
       // Scroll idle (left side - default)
       if(scroll_cycle_time < idle_time_left) {
@@ -513,13 +514,15 @@ void HOT TransitTracker::draw_schedule() {
   this->schedule_state_.mutex.lock();
 
   int nominal_font_height = this->font_->get_ascender() + this->font_->get_descender();
+  unsigned long uptime = millis();
+  uint rtc_now = this->rtc_->now().timestamp;
 
   int scroll_cycle_duration = 0;
   if (this->scroll_headsigns_) {
     int largest_headsign_overflow = 0;
     for (const Trip &trip : this->schedule_state_.trips) {
       int headsign_overflow;
-      this->draw_trip(trip, 0, nominal_font_height, true, &headsign_overflow);
+      this->draw_trip(trip, 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
       largest_headsign_overflow = max(largest_headsign_overflow, headsign_overflow);
     }
 
@@ -531,7 +534,7 @@ void HOT TransitTracker::draw_schedule() {
 
   int y_offset = 2;
   for (const Trip &trip : this->schedule_state_.trips) {
-    this->draw_trip(trip, y_offset, nominal_font_height, false, nullptr, scroll_cycle_duration);
+    this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
   }
 

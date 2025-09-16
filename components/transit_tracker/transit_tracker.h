@@ -63,11 +63,14 @@ class TransitTracker : public Component {
     static constexpr int idle_time_left = 5000;
     static constexpr int idle_time_right = 1000;
 
-    std::string from_now_(time_t unix_timestamp) const;
+    std::string from_now_(time_t unix_timestamp, uint rtc_now) const;
     void draw_text_centered_(const char *text, Color color);
-    void draw_realtime_icon_(int bottom_right_x, int bottom_right_y);
+    void draw_realtime_icon_(int bottom_right_x, int bottom_right_y, unsigned long now);
 
-    void draw_trip(const Trip &trip, int y_offset, int font_height, bool no_draw = false, int *headsign_overflow_out = nullptr, int scroll_cycle_duration = 0);
+    void draw_trip(
+      const Trip &trip, int y_offset, int font_height, unsigned long uptime, uint rtc_now,
+      bool no_draw = false, int *headsign_overflow_out = nullptr, int scroll_cycle_duration = 0
+    );
 
     ScheduleState schedule_state_;
 
