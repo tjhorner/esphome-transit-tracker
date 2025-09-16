@@ -59,9 +59,15 @@ class TransitTracker : public Component {
     void set_route_styles_from_text(const std::string &text);
 
   protected:
+    static constexpr int scroll_speed = 10; // pixels/second
+    static constexpr int idle_time_left = 5000;
+    static constexpr int idle_time_right = 1000;
+
     std::string from_now_(time_t unix_timestamp) const;
     void draw_text_centered_(const char *text, Color color);
     void draw_realtime_icon_(int bottom_right_x, int bottom_right_y);
+
+    void draw_trip(const Trip &trip, int y_offset, int font_height, bool no_draw = false, int *headsign_overflow_out = nullptr, int scroll_cycle_duration = 0);
 
     ScheduleState schedule_state_;
 
