@@ -520,6 +520,9 @@ void HOT TransitTracker::draw_schedule() {
     }
   }
 
+  int max_trips_height = (this->limit_ * this->font_->get_ascender()) + ((this->limit_ - 1) * this->font_->get_descender());
+  int y_offset = (this->display_->get_height() % max_trips_height) / 2;
+
   for (const Trip &trip : this->schedule_state_.trips) {
     this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
