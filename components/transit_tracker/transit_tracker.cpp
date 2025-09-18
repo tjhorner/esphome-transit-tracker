@@ -69,6 +69,7 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
   ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
   ESP_LOGCONFIG(TAG, "  Unit display: %s", this->unit_display_ == UNIT_DISPLAY_LONG ? "long" : this->unit_display_ == UNIT_DISPLAY_SHORT ? "short" : "none");
+  ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
 }
 
 void TransitTracker::reconnect() {
@@ -277,14 +278,8 @@ void TransitTracker::draw_text_centered_(const char *text, Color color) {
   this->display_->print(display_center_x, display_center_y, this->font_, color, display::TextAlign::CENTER, text);
 }
 
-std::string TransitTracker::from_now_(time_t unix_timestamp) const {
-  if (this->rtc_ == nullptr) {
-    return "";
-  }
-
-  uint now = this->rtc_->now().timestamp;
-
-  int diff = unix_timestamp - now;
+std::string TransitTracker::from_now_(time_t unix_timestamp, uint rtc_now) const {
+  int diff = unix_timestamp - rtc_now;
 
   if (diff < 30) {
     return "Now";
@@ -337,14 +332,13 @@ const uint8_t realtime_icon[6][6] = {
   {3, 0, 2, 0, 1, 1}
 };
 
-void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_right_y) {
+void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_right_y, unsigned long uptime) {
   const int num_frames = 6;
   const int idle_frame_duration = 3000;
   const int anim_frame_duration = 200;
   const int cycle_duration = idle_frame_duration + (num_frames - 1) * anim_frame_duration;
 
-  unsigned long now = millis();
-  unsigned long cycle_time = now % cycle_duration;
+  unsigned long cycle_time = uptime % cycle_duration;
 
   int frame;
   if (cycle_time < idle_frame_duration) {
@@ -376,6 +370,92 @@ void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_righ
       this->display_->draw_pixel_at(bottom_right_x - (5 - j), bottom_right_y - (5 - i), icon_color);
     }
   }
+}
+
+void TransitTracker::draw_trip(
+    const Trip &trip, int y_offset, int font_height, unsigned long uptime, uint rtc_now,
+    bool no_draw, int *headsign_overflow_out, int scroll_cycle_duration
+) {
+    if (!no_draw) {
+      this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
+    }
+
+    int route_width, _;
+    this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
+
+    auto time_display = this->from_now_(
+      this->display_departure_times_ ? trip.departure_time : trip.arrival_time,
+      rtc_now
+    );
+
+    int time_width;
+    this->font_->measure(time_display.c_str(), &time_width, &_, &_, &_);
+
+    int headsign_clipping_start = route_width + 3;
+    int headsign_clipping_end = this->display_->get_width() - time_width - 2;
+
+    if (!no_draw) {
+      Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
+      this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
+    }
+
+    if (trip.is_realtime) {
+      headsign_clipping_end -= 8;
+
+      if(!no_draw) {
+        int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
+        int icon_bottom_right_y = y_offset + font_height - 6;
+
+        this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y, uptime);
+      }
+    }
+
+    int headsign_max_width = headsign_clipping_end - headsign_clipping_start;
+
+    int headsign_actual_width;
+    this->font_->measure(trip.headsign.c_str(), &headsign_actual_width, &_, &_, &_);
+
+    int headsign_overflow = headsign_actual_width - headsign_max_width;
+    if (headsign_overflow_out) {
+      *headsign_overflow_out = headsign_overflow;
+    }
+
+    if (no_draw) {
+      return;
+    }
+
+    int scroll_offset = 0;
+    if (headsign_overflow > 0 && scroll_cycle_duration > 0) {
+      /// Note: The scroll may jump if headsign_clipping_end changes (e.g. due to the width of the arrival time changing).
+      /// This is probably not a big deal, since the display makes sudden changes anyway (e.g. when routes are updated)
+      /// and this happens relatively infrequently.
+
+      int scroll_time = headsign_overflow * 1000 / scroll_speed;
+      int scroll_cycle_time = uptime % scroll_cycle_duration;
+
+      // Scroll idle (left side - default)
+      if(scroll_cycle_time < idle_time_left) {
+        // scroll_offset = 0; do nothing
+      } else if (scroll_cycle_time < idle_time_left + scroll_time) {
+        // Scrolling left
+        int time_since_scroll_start = scroll_cycle_time - idle_time_left;
+        scroll_offset = time_since_scroll_start * scroll_speed / 1000;
+      } else if (scroll_cycle_time < idle_time_left + scroll_time + idle_time_right) {
+        // Scroll idle (right side)
+        scroll_offset = headsign_overflow;
+      } else if (scroll_cycle_time < idle_time_left + 2 * scroll_time + idle_time_right){
+        // Scrolling right
+        int time_since_scroll_start = scroll_cycle_time - (idle_time_left + scroll_time + idle_time_right);
+        scroll_offset = headsign_overflow - (time_since_scroll_start * scroll_speed / 1000);
+      } else {
+        // Waiting for other headsigns to finish scrolling
+        // scroll_offset = 0; do nothing
+      }
+    }
+
+    this->display_->start_clipping(headsign_clipping_start, 0, headsign_clipping_end, this->display_->get_height());
+    this->display_->print(headsign_clipping_start - scroll_offset, y_offset, this->font_, trip.headsign.c_str());
+    this->display_->end_clipping();
 }
 
 void HOT TransitTracker::draw_schedule() {
@@ -422,37 +502,26 @@ void HOT TransitTracker::draw_schedule() {
   this->schedule_state_.mutex.lock();
 
   int nominal_font_height = this->font_->get_ascender() + this->font_->get_descender();
+  unsigned long uptime = millis();
+  uint rtc_now = this->rtc_->now().timestamp;
 
-  int y_offset = 2;
-  for (const Trip &trip : this->schedule_state_.trips) {
-    this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
-
-    int route_width, route_x_offset, route_baseline, route_height;
-    this->font_->measure(trip.route_name.c_str(), &route_width, &route_x_offset, &route_baseline, &route_height);
-
-    auto time_display = this->from_now_(this->display_departure_times_ ? trip.departure_time : trip.arrival_time);
-
-    int time_width, time_x_offset, time_baseline, time_height;
-    this->font_->measure(time_display.c_str(), &time_width, &time_x_offset, &time_baseline, &time_height);
-
-    int headsign_clipping_end = this->display_->get_width() - time_width - 2;
-
-    Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
-    this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
-
-    if (trip.is_realtime) {
-      int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
-      int icon_bottom_right_y = y_offset + nominal_font_height - 6;
-
-      headsign_clipping_end -= 8;
-
-      this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y);
+  int scroll_cycle_duration = 0;
+  if (this->scroll_headsigns_) {
+    int largest_headsign_overflow = 0;
+    for (const Trip &trip : this->schedule_state_.trips) {
+      int headsign_overflow;
+      this->draw_trip(trip, 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
+      largest_headsign_overflow = max(largest_headsign_overflow, headsign_overflow);
     }
 
-    this->display_->start_clipping(0, 0, headsign_clipping_end, this->display_->get_height());
-    this->display_->print(route_width + 3, y_offset, this->font_, trip.headsign.c_str());
-    this->display_->end_clipping();
+    if (largest_headsign_overflow > 0) {
+      int longest_scroll_time = largest_headsign_overflow * 1000 / scroll_speed;
+      scroll_cycle_duration = idle_time_left + idle_time_right + 2*longest_scroll_time;
+    }
+  }
 
+  for (const Trip &trip : this->schedule_state_.trips) {
+    this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
   }
 

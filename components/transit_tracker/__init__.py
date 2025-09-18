@@ -33,6 +33,7 @@ CONF_FEED_CODE = "feed_code"
 CONF_DEFAULT_ROUTE_COLOR = "default_route_color"
 CONF_TIME_DISPLAY = "time_display"
 CONF_LIST_MODE = "list_mode"
+CONF_SCROLL_HEADSIGNS = "scroll_headsigns"
 
 
 def validate_ws_url(value):
@@ -69,6 +70,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_LIST_MODE, default="sequential"): cv.one_of(
                 "sequential", "nextPerRoute"
             ),
+            cv.Optional(CONF_SCROLL_HEADSIGNS, default=False) : cv.boolean,
             cv.Optional(CONF_STOPS, default=[]): cv.ensure_list(
                 cv.Schema(
                     {
@@ -134,6 +136,7 @@ async def to_code(config):
     cg.add(var.set_display_departure_times(display_departure_times))
 
     cg.add(var.set_list_mode(config[CONF_LIST_MODE]))
+    cg.add(var.set_scroll_headsigns(config[CONF_SCROLL_HEADSIGNS]))
 
     cg.add(var.set_limit(config[CONF_LIMIT]))
 

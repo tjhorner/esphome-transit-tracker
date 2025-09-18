@@ -48,6 +48,7 @@ class TransitTracker : public Component {
     void set_schedule_string(const std::string &schedule_string) { schedule_string_ = schedule_string; }
     void set_list_mode(const std::string &list_mode) { list_mode_ = list_mode; }
     void set_limit(int limit) { limit_ = limit; }
+    void set_scroll_headsigns(bool scroll_headsigns) { scroll_headsigns_ = scroll_headsigns; }
 
     void set_unit_display(UnitDisplay unit_display) { unit_display_ = unit_display; }
     void add_abbreviation(const std::string &from, const std::string &to) { abbreviations_[from] = to; }
@@ -58,9 +59,18 @@ class TransitTracker : public Component {
     void set_route_styles_from_text(const std::string &text);
 
   protected:
-    std::string from_now_(time_t unix_timestamp) const;
+    static constexpr int scroll_speed = 10; // pixels/second
+    static constexpr int idle_time_left = 5000;
+    static constexpr int idle_time_right = 1000;
+
+    std::string from_now_(time_t unix_timestamp, uint rtc_now) const;
     void draw_text_centered_(const char *text, Color color);
-    void draw_realtime_icon_(int bottom_right_x, int bottom_right_y);
+    void draw_realtime_icon_(int bottom_right_x, int bottom_right_y, unsigned long now);
+
+    void draw_trip(
+      const Trip &trip, int y_offset, int font_height, unsigned long uptime, uint rtc_now,
+      bool no_draw = false, int *headsign_overflow_out = nullptr, int scroll_cycle_duration = 0
+    );
 
     ScheduleState schedule_state_;
 
@@ -89,6 +99,7 @@ class TransitTracker : public Component {
     std::map<std::string, std::string> abbreviations_;
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;
+    bool scroll_headsigns_ = false;
 };
 
 
