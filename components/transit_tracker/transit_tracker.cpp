@@ -425,7 +425,7 @@ void TransitTracker::draw_trip(
     }
 
     int scroll_offset = 0;
-    if(headsign_overflow > 0 && scroll_cycle_duration > 0) {
+    if (headsign_overflow > 0 && scroll_cycle_duration > 0) {
       /// Note: The scroll may jump if headsign_clipping_end changes (e.g. due to the width of the arrival time changing).
       /// This is probably not a big deal, since the display makes sudden changes anyway (e.g. when routes are updated)
       /// and this happens relatively infrequently.
@@ -436,27 +436,19 @@ void TransitTracker::draw_trip(
       // Scroll idle (left side - default)
       if(scroll_cycle_time < idle_time_left) {
         // scroll_offset = 0; do nothing
-      }
-
-      // Scrolling left
-      else if(scroll_cycle_time < idle_time_left + scroll_time) {
+      } else if (scroll_cycle_time < idle_time_left + scroll_time) {
+        // Scrolling left
         int time_since_scroll_start = scroll_cycle_time - idle_time_left;
         scroll_offset = time_since_scroll_start * scroll_speed / 1000;
-      }
-
-      // Scroll idle (right side)
-      else if(scroll_cycle_time < idle_time_left + scroll_time + idle_time_right) {
+      } else if (scroll_cycle_time < idle_time_left + scroll_time + idle_time_right) {
+        // Scroll idle (right side)
         scroll_offset = headsign_overflow;
-      }
-
-      // Scrolling right
-      else if (scroll_cycle_time < idle_time_left + 2*scroll_time + idle_time_right){
+      } else if (scroll_cycle_time < idle_time_left + 2 * scroll_time + idle_time_right){
+        // Scrolling right
         int time_since_scroll_start = scroll_cycle_time - (idle_time_left + scroll_time + idle_time_right);
         scroll_offset = headsign_overflow - (time_since_scroll_start * scroll_speed / 1000);
-      }
-
-      // Waiting for other headsigns to finish scrolling
-      else {
+      } else {
+        // Waiting for other headsigns to finish scrolling
         // scroll_offset = 0; do nothing
       }
     }
@@ -528,7 +520,6 @@ void HOT TransitTracker::draw_schedule() {
     }
   }
 
-  int y_offset = 2;
   for (const Trip &trip : this->schedule_state_.trips) {
     this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
