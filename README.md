@@ -26,7 +26,7 @@ You will need these components in your configuration:
 - [Font](https://esphome.io/components/font/)
 - [Time](https://esphome.io/components/time/)
 
-Then you can define an instance of the component like so (note that this is a complete example; most parameters are optional):
+Then you can define an instance of the component like so (this is a complete example; most parameters are optional, and defaults are shown here):
 
 ```yaml
 transit_tracker:
@@ -59,6 +59,9 @@ transit_tracker:
   #   short = "5m"   / "1h15m"
   #   none  = "5"    / "1:15"
   show_units: long
+
+  # If true, headsign text will scroll if it doesn't fit
+  scroll_headsigns: false
 
   # List of stop and route IDs to track
   stops:
