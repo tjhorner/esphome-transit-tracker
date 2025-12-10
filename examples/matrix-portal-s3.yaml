@@ -3,7 +3,7 @@ esphome:
   friendly_name: Transit Tracker
 
 esp32:
-  board: esp32-s3-devkitc-1
+  board: adafruit-matrixportal-esp32s3
   framework:
     type: arduino
 
@@ -75,45 +75,28 @@ time:
 color:
   - id: rapidride_red
     hex: "F50046"
-  - id: e_line_red
-    hex: "9C182F"
-  - id: route_44_purple
-    hex: "840AFD"
 
 transit_tracker:
   id: tracker
   base_url: "wss://tt.horner.tj/"
-  limit: 12
-  #list_mode: "nextPerRoute"
-  #list_mode: "sequential"
-  list_mode: "doubleTime"
-  scroll_headsigns: true
-  show_units: "short"
-  #show_units: "long"
-  #show_units: "none"
+  limit: 3
+  feed_code: "st"
   stops:
-    - stop_id: "st:1_29557"
+    - stop_id: "1_71971" # Redmond Way & Bear Creek Pkwy
+      time_offset: -8min
       routes:
-        - "st:1_100224"
-    - stop_id: "st:1_29231"
+        - "1_100113" # 221
+        - "1_102704" # 250
+    - stop_id: "1_71961" # RTC
+      time_offset: -10min
       routes:
-        - "st:1_100224"
-    - stop_id: "st:1_75408"
-      routes:
-        - "st:1_102615"
+        - "1_102548" # B Line
   styles:
-    - route_id: "st:1_102615"
-      name: "E"
-      color: e_line_red
-    - route_id: "st:1_100224"
-      name: "44"
-      color: route_44_purple
+    - route_id: "1_102548"
+      name: "B"
+      color: rapidride_red
   abbreviations:
-    - from: "Seattle"
-      to: ""
-    - from: "Ballard Wallingford"
-      to: "Ballard - 46th & Stone"
-    - from: "University Of Washington Medical Center Wallingford"
-      to: "UW - 45th & Greenlake "
-    - from: "University District"
-      to: "UW - 45th & Greenlake "
+    - from: "Bellevue Transit Center Crossroads"
+      to: "Bellevue TC"
+    - from: "Transit Center"
+      to: "TC"
