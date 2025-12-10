@@ -608,7 +608,7 @@ void HOT TransitTracker::draw_schedule() {
 
   // Calculate vertical centering
   int num_rows_on_page = end_idx - start_idx;
-  int max_trips_height = (num_rows_on_page * this->font_->get_ascender()) + ((num_rows_on_page - 1) * this->font_->get_descender());
+  int max_trips_height = num_rows_on_page * nominal_font_height - this->font_->get_descender();
   int y_offset = (this->display_->get_height() - max_trips_height) / 2;
   if (y_offset < 0) y_offset = 0;
 
@@ -691,7 +691,7 @@ void HOT TransitTracker::draw_schedule() {
     }
     
     // Draw headsign with clipping
-    this->display_->start_clipping(headsign_clipping_start, y_offset, headsign_clipping_end, y_offset + nominal_font_height);
+    this->display_->start_clipping(headsign_clipping_start, y_offset - 2, headsign_clipping_end, y_offset + nominal_font_height + 2);
     this->display_->print(headsign_clipping_start - scroll_offset, y_offset, this->font_, row.primary_trip->headsign.c_str());
     this->display_->end_clipping();
     
