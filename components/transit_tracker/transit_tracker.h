@@ -58,6 +58,11 @@ class TransitTracker : public Component {
     void set_abbreviations_from_text(const std::string &text);
     void set_route_styles_from_text(const std::string &text);
 
+    struct DisplayRow {
+      const Trip* primary_trip;
+      std::vector<const Trip*> trips;
+    };
+
   protected:
     static constexpr int scroll_speed = 10; // pixels/second
     static constexpr int idle_time_left = 5000;
@@ -71,6 +76,9 @@ class TransitTracker : public Component {
       const Trip &trip, int y_offset, int font_height, unsigned long uptime, uint rtc_now,
       bool no_draw = false, int *headsign_overflow_out = nullptr, int scroll_cycle_duration = 0
     );
+
+    void update_display_rows_();
+    std::vector<DisplayRow> display_rows_;
 
     ScheduleState schedule_state_;
 
@@ -100,6 +108,10 @@ class TransitTracker : public Component {
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;
     bool scroll_headsigns_ = false;
+
+    // Cached scroll state to prevent mid-cycle jumps
+    unsigned long scroll_cycle_start_ = 0;
+    int cached_scroll_cycle_duration_ = 0;
 };
 
 
