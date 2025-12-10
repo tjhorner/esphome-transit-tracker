@@ -97,9 +97,6 @@ transit_tracker:
     - stop_id: "st:1_75408"
       routes:
         - "st:1_102615"
-    - stop_id: "st:40_990002"
-      routes:
-        - "st:40_100479"
   styles:
     - route_id: "st:1_102615"
       name: "E"

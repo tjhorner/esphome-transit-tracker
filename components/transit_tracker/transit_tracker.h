@@ -66,8 +66,8 @@ class TransitTracker : public Component {
 
   protected:
     static constexpr int scroll_speed = 10; // pixels/second
-    static constexpr int idle_time_left = 5000;
-    static constexpr int idle_time_right = 1000;
+    static constexpr int idle_time_left = 8000;
+    static constexpr int idle_time_right = 2000;
 
     std::string from_now_(time_t unix_timestamp, uint rtc_now) const;
     void draw_text_centered_(const char *text, Color color);
