@@ -68,7 +68,7 @@ CONFIG_SCHEMA = cv.All(
                 "departure", "arrival"
             ),
             cv.Optional(CONF_LIST_MODE, default="sequential"): cv.one_of(
-                "sequential", "nextPerRoute"
+                "sequential", "nextPerRoute", "doubleTime"
             ),
             cv.Optional(CONF_SCROLL_HEADSIGNS, default=False) : cv.boolean,
             cv.Optional(CONF_STOPS, default=[]): cv.ensure_list(
@@ -135,7 +135,15 @@ async def to_code(config):
     display_departure_times = config[CONF_TIME_DISPLAY] == "departure"
     cg.add(var.set_display_departure_times(display_departure_times))
 
-    cg.add(var.set_list_mode(config[CONF_LIST_MODE]))
+    list_mode_conf = config[CONF_LIST_MODE]
+    
+    if list_mode_conf == "doubleTime":
+        cg.add(var.set_list_mode("sequential"))
+        cg.add(var.set_double_time(True))
+    else:
+        cg.add(var.set_list_mode(list_mode_conf))
+        cg.add(var.set_double_time(False))
+
     cg.add(var.set_scroll_headsigns(config[CONF_SCROLL_HEADSIGNS]))
 
     cg.add(var.set_limit(config[CONF_LIMIT]))

@@ -84,18 +84,22 @@ transit_tracker:
   id: tracker
   base_url: "wss://tt.horner.tj/"
   limit: 10
+  list_mode: "sequential"
   scroll_headsigns: true
   show_units: "short"
   stops:
-    - stop_id: "st:1_75408"
-      routes:
-        - "st:1_102615"
     - stop_id: "st:1_29557"
       routes:
         - "st:1_100224"
     - stop_id: "st:1_29231"
       routes:
         - "st:1_100224"
+    - stop_id: "st:1_75408"
+      routes:
+        - "st:1_102615"
+    - stop_id: "st:40_990002"
+      routes:
+        - "st:40_100479"
   styles:
     - route_id: "st:1_102615"
       name: "E"
