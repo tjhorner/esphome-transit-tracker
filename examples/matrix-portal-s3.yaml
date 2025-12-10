@@ -84,9 +84,13 @@ transit_tracker:
   id: tracker
   base_url: "wss://tt.horner.tj/"
   limit: 12
+  #list_mode: "nextPerRoute"
+  #list_mode: "sequential"
   list_mode: "doubleTime"
   scroll_headsigns: true
   show_units: "short"
+  #show_units: "long"
+  #show_units: "none"
   stops:
     - stop_id: "st:1_29557"
       routes:

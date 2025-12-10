@@ -396,7 +396,7 @@ void TransitTracker::draw_trip(
     // Use a stable baseline width for clipping to prevent jitter when time changes (e.g., "10m" → "9m")
     int baseline_time_width;
     this->font_->measure("99m", &baseline_time_width, &_, &_, &_);
-    int stable_time_width = max(time_width, baseline_time_width);
+    int stable_time_width = std::max(time_width, baseline_time_width);
 
     int headsign_clipping_start = route_width + 3;
     int headsign_clipping_end = this->display_->get_width() - stable_time_width - 2;
@@ -523,7 +523,13 @@ void HOT TransitTracker::draw_schedule() {
 
   // Calculate baseline time width for stable layout
   int baseline_time_width, _;
-  this->font_->measure("99m", &baseline_time_width, &_, &_, &_);
+  const char* baseline_text = "99m";
+  if (this->unit_display_ == UNIT_DISPLAY_LONG) {
+    baseline_text = "99min";
+  } else if (this->unit_display_ == UNIT_DISPLAY_NONE) {
+    baseline_text = "99:99";
+  }
+  this->font_->measure(baseline_text, &baseline_time_width, &_, &_, &_);
   int total_times_width = this->double_time_ ? (baseline_time_width * 2 + 3) : (baseline_time_width + 8);
 
   int num_total_rows = this->display_rows_.size();
@@ -542,7 +548,6 @@ void HOT TransitTracker::draw_schedule() {
     if (!this->scroll_headsigns_) return 0;
     
     int largest_headsign_overflow = 0;
-    int headsign_clipping_end = this->display_->get_width() - total_times_width - 2;
 
     for (int i = start; i < end; i++) {
         const auto &row = this->display_rows_[i];
@@ -550,6 +555,26 @@ void HOT TransitTracker::draw_schedule() {
         this->font_->measure(row.primary_trip->route_name.c_str(), &route_w, &_, &_, &_);
         this->font_->measure(row.primary_trip->headsign.c_str(), &headsign_w, &_, &_, &_);
         
+        int tx = this->display_->get_width() + 1;
+        int times_to_draw = this->double_time_ ? 2 : 1;
+        for (int j = times_to_draw - 1; j >= 0; j--) {
+             if (j < row.trips.size()) {
+                 const Trip* t = row.trips[j];
+                 std::string ts = this->from_now_(
+                    this->display_departure_times_ ? t->departure_time : t->arrival_time,
+                    rtc_now
+                 );
+                 int tw = 0;
+                 this->font_->measure(ts.c_str(), &tw, &_, &_, &_);
+                 int item_width = tw;
+                 if (!this->double_time_ && t->is_realtime) {
+                     item_width += 8;
+                 }
+                 tx -= item_width + 2;
+             }
+        }
+        
+        int headsign_clipping_end = tx;
         int headsign_clipping_start = route_w + 3;
         int headsign_max_width = headsign_clipping_end - headsign_clipping_start;
         int headsign_overflow = headsign_w - headsign_max_width;
@@ -602,8 +627,8 @@ void HOT TransitTracker::draw_schedule() {
     for (int i = times_to_draw - 1; i >= 0; i--) {
       std::string time_str;
       Color color = Color(0xa7a7a7);
-      int width = baseline_time_width;
-      int w = 0; // Initialize with 0
+      int width = 0; // Initialize with 0
+      int w = 0; 
       
       if (i < row.trips.size()) {
         const Trip* t = row.trips[i];
@@ -614,7 +639,7 @@ void HOT TransitTracker::draw_schedule() {
         color = t->is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
         int _, __;
         this->font_->measure(time_str.c_str(), &w, &_, &_, &_);
-        width = std::max(w, baseline_time_width);
+        width = w; // Use actual width
       }
       
       if (!time_str.empty()) {
@@ -626,13 +651,13 @@ void HOT TransitTracker::draw_schedule() {
            this->draw_realtime_icon_(icon_x, icon_y, icon_frame);
            width += 8;
         }
+        time_x -= width + 2;
       }
-      time_x -= width + 2;
     }
     
     // Calculate headsign clipping area - must match scroll calculation exactly
     int headsign_clipping_start = route_width + 3;
-    int headsign_clipping_end = this->display_->get_width() - total_times_width - 2;
+    int headsign_clipping_end = time_x; // Use actual end position
     int headsign_max_width = headsign_clipping_end - headsign_clipping_start;
     
     int headsign_actual_width;
