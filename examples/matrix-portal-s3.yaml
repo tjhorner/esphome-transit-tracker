@@ -54,7 +54,8 @@ display:
     OE_pin: 14
     CLK_pin: 2
     clock_phase: false
-    i2sspeed: HZ_20M
+    i2sspeed: HZ_10M
+    latch_blanking: 4
     brightness: 255
     lambda: |-
       id(tracker).draw_schedule();
