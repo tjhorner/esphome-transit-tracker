@@ -524,11 +524,15 @@ void HOT TransitTracker::draw_schedule() {
   // Calculate baseline time width for stable layout
   int baseline_time_width, _;
   this->font_->measure("99m", &baseline_time_width, &_, &_, &_);
-  int total_times_width = this->double_time_ ? (baseline_time_width * 2 + 3 + 16) : (baseline_time_width + 8);
+  int total_times_width = this->double_time_ ? (baseline_time_width * 2 + 3) : (baseline_time_width + 8);
 
   int num_total_rows = this->display_rows_.size();
   int num_pages = (num_total_rows + items_per_page - 1) / items_per_page;
   if (num_pages < 1) num_pages = 1;
+
+  if (!this->double_time_) {
+    this->page_index_ = 0;
+  }
 
   int start_idx = (this->page_index_ % num_pages) * items_per_page;
   int end_idx = std::min(start_idx + items_per_page, num_total_rows);
@@ -565,7 +569,7 @@ void HOT TransitTracker::draw_schedule() {
   int scroll_cycle_duration = calc_scroll_duration(start_idx, end_idx);
   int page_dwell = std::max(5000, scroll_cycle_duration);
 
-  if (uptime - this->last_page_change_ > (unsigned long)page_dwell) {
+  if (this->double_time_ && uptime - this->last_page_change_ > (unsigned long)page_dwell) {
       this->page_index_ = (this->page_index_ + 1) % num_pages;
       this->last_page_change_ = uptime;
       this->scroll_cycle_start_ = uptime;
@@ -616,7 +620,7 @@ void HOT TransitTracker::draw_schedule() {
       if (!time_str.empty()) {
         this->display_->print(time_x, y_offset, this->font_, color, display::TextAlign::TOP_RIGHT, time_str.c_str());
 
-        if (i < row.trips.size() && row.trips[i]->is_realtime) {
+        if (!this->double_time_ && i < row.trips.size() && row.trips[i]->is_realtime) {
            int icon_x = time_x - w - 8;
            int icon_y = y_offset + nominal_font_height - 11;
            this->draw_realtime_icon_(icon_x, icon_y, icon_frame);

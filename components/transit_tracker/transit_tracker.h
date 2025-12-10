@@ -113,7 +113,6 @@ class TransitTracker : public Component {
 
     // Cached scroll state to prevent mid-cycle jumps
     unsigned long scroll_cycle_start_ = 0;
-    int cached_scroll_cycle_duration_ = 0;
 
     // Pagination
     int page_index_ = 0;

@@ -83,8 +83,8 @@ color:
 transit_tracker:
   id: tracker
   base_url: "wss://tt.horner.tj/"
-  limit: 10
-  list_mode: "sequential"
+  limit: 12
+  list_mode: "doubleTime"
   scroll_headsigns: true
   show_units: "short"
   stops:
