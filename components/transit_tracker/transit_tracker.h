@@ -9,6 +9,7 @@
 #include "esphome/components/time/real_time_clock.h"
 
 #include "schedule_state.h"
+#include "localization.h"
 
 namespace esphome {
 namespace transit_tracker {
@@ -16,12 +17,6 @@ namespace transit_tracker {
 struct RouteStyle {
   std::string name;
   Color color;
-};
-
-enum UnitDisplay : uint8_t {
-  UNIT_DISPLAY_LONG,
-  UNIT_DISPLAY_SHORT,
-  UNIT_DISPLAY_NONE
 };
 
 class TransitTracker : public Component {
@@ -38,6 +33,8 @@ class TransitTracker : public Component {
 
     void draw_schedule();
 
+    Localization* get_localization() { return &this->localization_; }
+
     void set_display(display::Display *display) { display_ = display; }
     void set_font(font::Font *font) { font_ = font; }
     void set_rtc(time::RealTimeClock *rtc) { rtc_ = rtc; }
@@ -50,7 +47,7 @@ class TransitTracker : public Component {
     void set_limit(int limit) { limit_ = limit; }
     void set_scroll_headsigns(bool scroll_headsigns) { scroll_headsigns_ = scroll_headsigns; }
 
-    void set_unit_display(UnitDisplay unit_display) { unit_display_ = unit_display; }
+    void set_unit_display(UnitDisplay unit_display) { this->localization_.set_unit_display(unit_display); }
     void add_abbreviation(const std::string &from, const std::string &to) { abbreviations_[from] = to; }
     void set_default_route_color(const Color &color) { default_route_color_ = color; }
     void add_route_style(const std::string &route_id, const std::string &name, const Color &color) { route_styles_[route_id] = RouteStyle{name, color}; }
@@ -72,6 +69,7 @@ class TransitTracker : public Component {
       bool no_draw = false, int *headsign_overflow_out = nullptr, int scroll_cycle_duration = 0
     );
 
+    Localization localization_{};
     ScheduleState schedule_state_;
 
     display::Display *display_;
@@ -95,7 +93,6 @@ class TransitTracker : public Component {
     bool display_departure_times_ = true;
     int limit_;
 
-    UnitDisplay unit_display_ = UNIT_DISPLAY_LONG;
     std::map<std::string, std::string> abbreviations_;
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;

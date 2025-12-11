@@ -68,7 +68,6 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  Limit: %d", this->limit_);
   ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
   ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
-  ESP_LOGCONFIG(TAG, "  Unit display: %s", this->unit_display_ == UNIT_DISPLAY_LONG ? "long" : this->unit_display_ == UNIT_DISPLAY_SHORT ? "short" : "none");
   ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
 }
 
@@ -286,51 +285,6 @@ void TransitTracker::draw_text_centered_(const char *text, Color color) {
   this->display_->print(display_center_x, display_center_y, this->font_, color, display::TextAlign::CENTER, text);
 }
 
-std::string TransitTracker::from_now_(time_t unix_timestamp, uint rtc_now) const {
-  int diff = unix_timestamp - rtc_now;
-
-  if (diff < 30) {
-    return "Now";
-  }
-
-  if (diff < 60) {
-    switch (this->unit_display_) {
-      case UNIT_DISPLAY_LONG:
-        return "0min";
-      case UNIT_DISPLAY_SHORT:
-        return "0m";
-      case UNIT_DISPLAY_NONE:
-        return "0";
-    }
-  }
-
-  int minutes = diff / 60;
-
-  if (minutes < 60) {
-    switch (this->unit_display_) {
-      case UNIT_DISPLAY_LONG:
-        return str_sprintf("%dmin", minutes);
-      case UNIT_DISPLAY_SHORT:
-        return str_sprintf("%dm", minutes);
-      case UNIT_DISPLAY_NONE:
-      default:
-        return str_sprintf("%d", minutes);
-    }
-  }
-
-  int hours = minutes / 60;
-  minutes = minutes % 60;
-
-  switch (this->unit_display_) {
-    case UNIT_DISPLAY_LONG:
-    case UNIT_DISPLAY_SHORT:
-      return str_sprintf("%dh%dm", hours, minutes);
-    case UNIT_DISPLAY_NONE:
-    default:
-      return str_sprintf("%d:%02d", hours, minutes);
-  }
-}
-
 const uint8_t realtime_icon[6][6] = {
   {0, 0, 0, 3, 3, 3},
   {0, 0, 3, 0, 0, 0},
@@ -391,7 +345,7 @@ void TransitTracker::draw_trip(
     int route_width, _;
     this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
 
-    auto time_display = this->from_now_(
+    auto time_display = this->localization_.fmt_duration_from_now(
       this->display_departure_times_ ? trip.departure_time : trip.arrival_time,
       rtc_now
     );
