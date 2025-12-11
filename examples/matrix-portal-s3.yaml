@@ -3,7 +3,8 @@ esphome:
   friendly_name: Transit Tracker
 
 esp32:
-  board: adafruit-matrixportal-esp32s3
+  variant: esp32s3
+  flash_size: 8MB
   framework:
     type: arduino
 
@@ -24,8 +25,8 @@ ota:
     password: ""
 
 wifi:
-  ssid: ""
-  password: ""
+  ssid: "ReplaceMe"
+  password: "ReplaceMe!"
   power_save_mode: "NONE"
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
