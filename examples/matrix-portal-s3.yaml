@@ -88,6 +88,10 @@ transit_tracker:
   # trips_per_page: 1
   # page_cycle_duration: 5s
 
+  # Optional: Show remaining trips indicator (requires API support)
+  # Displays "(-N)" showing how many more trips are coming after this one
+  # show_remaining_trips: true
+
   stops:
     - stop_id: "1_71971" # Redmond Way & Bear Creek Pkwy
       time_offset: -8min

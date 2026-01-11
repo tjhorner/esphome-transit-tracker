@@ -48,6 +48,7 @@ class TransitTracker : public Component {
     void set_scroll_headsigns(bool scroll_headsigns) { scroll_headsigns_ = scroll_headsigns; }
     void set_trips_per_page(int trips_per_page) { trips_per_page_ = trips_per_page; }
     void set_page_cycle_duration(int page_cycle_duration) { page_cycle_duration_ = page_cycle_duration; }
+    void set_show_remaining_trips(bool show_remaining_trips) { show_remaining_trips_ = show_remaining_trips; }
 
     void set_unit_display(UnitDisplay unit_display) { this->localization_.set_unit_display(unit_display); }
     void add_abbreviation(const std::string &from, const std::string &to) { abbreviations_[from] = to; }
@@ -105,6 +106,7 @@ class TransitTracker : public Component {
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;
     bool scroll_headsigns_ = false;
+    bool show_remaining_trips_ = false;  // Display "(-N)" indicator for remaining trips
 };
 
 

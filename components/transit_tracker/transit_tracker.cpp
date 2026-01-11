@@ -69,6 +69,7 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
   ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
   ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
+  ESP_LOGCONFIG(TAG, "  Show Remaining Trips: %s", this->show_remaining_trips_ ? "true" : "false");
 
   if (this->trips_per_page_ > 0) {
     ESP_LOGCONFIG(TAG, "  Trips per page: %d", this->trips_per_page_);
@@ -141,6 +142,13 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         route_color = Color(std::stoul(trip["routeColor"].as<std::string>(), nullptr, 16));
       }
 
+      // Parse remaining trips count from API (optional field)
+      // Default to -1 if not provided, indicating the data is unavailable
+      int remaining_trips = -1;
+      if (!trip["remainingTrips"].isNull()) {
+        remaining_trips = trip["remainingTrips"].as<int>();
+      }
+
       this->schedule_state_.trips.push_back({
         .route_id = route_id,
         .route_name = route_name,
@@ -149,6 +157,7 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         .arrival_time = trip["arrivalTime"].as<time_t>(),
         .departure_time = trip["departureTime"].as<time_t>(),
         .is_realtime = trip["isRealtime"].as<bool>(),
+        .remaining_trips = remaining_trips,
       });
     }
 
@@ -360,12 +369,28 @@ void TransitTracker::draw_trip(
     int time_width;
     this->font_->measure(time_display.c_str(), &time_width, &_, &_, &_);
 
+    // Calculate width for remaining trips indicator if enabled and data is available
+    std::string remaining_trips_text = "";
+    int remaining_trips_width = 0;
+    if (this->show_remaining_trips_ && trip.remaining_trips >= 0) {
+      remaining_trips_text = "(-" + std::to_string(trip.remaining_trips) + ")";
+      this->font_->measure(remaining_trips_text.c_str(), &remaining_trips_width, &_, &_, &_);
+      remaining_trips_width += 2;  // Add 2px spacing
+    }
+
     int headsign_clipping_start = route_width + 3;
-    int headsign_clipping_end = this->display_->get_width() - time_width - 2;
+    int headsign_clipping_end = this->display_->get_width() - time_width - remaining_trips_width - 2;
 
     if (!no_draw) {
       Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
       this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
+
+      // Display remaining trips indicator to the left of the time
+      if (this->show_remaining_trips_ && trip.remaining_trips >= 0) {
+        Color remaining_color = trip.remaining_trips == 0 ? Color(0xFF6B00) : Color(0xa7a7a7);  // Orange for last trip
+        int remaining_x = this->display_->get_width() - time_width - remaining_trips_width + 1;
+        this->display_->print(remaining_x, y_offset, this->font_, remaining_color, display::TextAlign::TOP_LEFT, remaining_trips_text.c_str());
+      }
     }
 
     if (trip.is_realtime) {

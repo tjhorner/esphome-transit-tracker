@@ -68,6 +68,10 @@ transit_tracker:
   trips_per_page: 3  # Number of trips to show per page (optional)
   page_cycle_duration: 5s  # How long to show each page before cycling to the next
 
+  # Show remaining trips indicator: Display "(-N)" showing how many more trips
+  # are coming after the current one (requires API support)
+  show_remaining_trips: false  # Default: false
+
   # List of stop and route IDs to track
   stops:
     - stop_id: "1_71971"
@@ -129,6 +133,31 @@ The `trips_per_page` and `page_cycle_duration` options allow you to cycle throug
    ```
 
 **Note:** When `trips_per_page` is not set or is greater than/equal to `limit`, all trips are shown at once (backward compatible with previous versions).
+
+### Remaining Trips Indicator
+
+The `show_remaining_trips` option displays how many additional trips remain for the day after each shown trip. This helps users understand if they're looking at the last service of the day or how many more chances they have.
+
+**Requirements:**
+- Requires Transit Tracker API support (see [API feature request](https://github.com/tjhorner/transit-tracker-api/issues/))
+- The API must provide a `remainingTrips` field in the schedule data
+
+**Display behavior:**
+- Shows "(-N)" next to the arrival/departure time, where N is the number of remaining trips
+- Example: "5min (-3)" means the trip arrives in 5 minutes and there are 3 more trips after this one
+- Last trip of the day is highlighted in orange: "15min (-0)"
+- Indicator is gray for all other trips
+
+**Configuration:**
+```yaml
+transit_tracker:
+  show_remaining_trips: true
+```
+
+**When to use:**
+- Late-night service monitoring (know when the last train is coming)
+- Infrequent routes where knowing "2 more trips today" provides valuable context
+- Planning around end-of-service times
 
 Then, finally, in your display's draw lambda:
 

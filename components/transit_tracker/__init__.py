@@ -36,6 +36,7 @@ CONF_LIST_MODE = "list_mode"
 CONF_SCROLL_HEADSIGNS = "scroll_headsigns"
 CONF_TRIPS_PER_PAGE = "trips_per_page"
 CONF_PAGE_CYCLE_DURATION = "page_cycle_duration"
+CONF_SHOW_REMAINING_TRIPS = "show_remaining_trips"
 
 
 def validate_ws_url(value):
@@ -75,6 +76,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SCROLL_HEADSIGNS, default=False) : cv.boolean,
             cv.Optional(CONF_TRIPS_PER_PAGE): cv.positive_int,
             cv.Optional(CONF_PAGE_CYCLE_DURATION, default="5s"): cv.time_period,
+            cv.Optional(CONF_SHOW_REMAINING_TRIPS, default=False): cv.boolean,
             cv.Optional(CONF_STOPS, default=[]): cv.ensure_list(
                 cv.Schema(
                     {
@@ -141,6 +143,7 @@ async def to_code(config):
 
     cg.add(var.set_list_mode(config[CONF_LIST_MODE]))
     cg.add(var.set_scroll_headsigns(config[CONF_SCROLL_HEADSIGNS]))
+    cg.add(var.set_show_remaining_trips(config[CONF_SHOW_REMAINING_TRIPS]))
 
     if CONF_TRIPS_PER_PAGE in config:
         cg.add(var.set_trips_per_page(config[CONF_TRIPS_PER_PAGE]))
