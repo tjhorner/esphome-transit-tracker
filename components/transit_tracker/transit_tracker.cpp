@@ -69,6 +69,13 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
   ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
   ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
+
+  if (this->trips_per_page_ > 0) {
+    ESP_LOGCONFIG(TAG, "  Trips per page: %d", this->trips_per_page_);
+    ESP_LOGCONFIG(TAG, "  Page cycle duration: %dms", this->page_cycle_duration_);
+  } else {
+    ESP_LOGCONFIG(TAG, "  Page cycling: disabled (showing all trips)");
+  }
 }
 
 void TransitTracker::reconnect() {
@@ -467,13 +474,35 @@ void HOT TransitTracker::draw_schedule() {
   unsigned long uptime = millis();
   uint rtc_now = this->rtc_->now().timestamp;
 
+  // Determine how many trips to show per page
+  // If trips_per_page_ is not set (== -1), use limit_ to show all trips (backward compatible)
+  int trips_per_page = (this->trips_per_page_ > 0) ? this->trips_per_page_ : this->limit_;
+
+  // Calculate which page to show based on uptime
+  // Pages cycle automatically based on page_cycle_duration_
+  int total_trips = this->schedule_state_.trips.size();
+  int num_pages = (total_trips + trips_per_page - 1) / trips_per_page;  // ceiling division
+  int current_page = 0;
+  if (num_pages > 1) {
+    // Cycle through pages: page index changes every page_cycle_duration_ milliseconds
+    current_page = (uptime / this->page_cycle_duration_) % num_pages;
+  }
+
+  // Calculate which trips to show on this page
+  // For example, if trips_per_page=2 and current_page=1, show trips at indices 2-3
+  int start_index = current_page * trips_per_page;
+  int end_index = std::min(start_index + trips_per_page, total_trips);
+
+  // Calculate scroll cycle duration for headsigns (if enabled)
   int scroll_cycle_duration = 0;
   if (this->scroll_headsigns_) {
     int largest_headsign_overflow = 0;
-    for (const Trip &trip : this->schedule_state_.trips) {
+    // Only measure the trips that will be visible on this page
+    for (int i = start_index; i < end_index; i++) {
+      const Trip &trip = this->schedule_state_.trips[i];
       int headsign_overflow;
       this->draw_trip(trip, 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
-      largest_headsign_overflow = max(largest_headsign_overflow, headsign_overflow);
+      largest_headsign_overflow = std::max(largest_headsign_overflow, headsign_overflow);
     }
 
     if (largest_headsign_overflow > 0) {
@@ -482,10 +511,16 @@ void HOT TransitTracker::draw_schedule() {
     }
   }
 
-  int max_trips_height = (this->limit_ * this->font_->get_ascender()) + ((this->limit_ - 1) * this->font_->get_descender());
-  int y_offset = (this->display_->get_height() % max_trips_height) / 2;
+  // Calculate vertical centering for this page's trips
+  // Center the visible trips on the display to avoid them being stuck at the top
+  int visible_trip_count = end_index - start_index;
+  int max_trips_height = (visible_trip_count * this->font_->get_ascender()) +
+                         ((visible_trip_count - 1) * this->font_->get_descender());
+  int y_offset = (this->display_->get_height() - max_trips_height) / 2;
 
-  for (const Trip &trip : this->schedule_state_.trips) {
+  // Draw only the trips for this page
+  for (int i = start_index; i < end_index; i++) {
+    const Trip &trip = this->schedule_state_.trips[i];
     this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
   }

@@ -1,6 +1,6 @@
 esphome:
-  name: transit-tracker
-  friendly_name: Transit Tracker
+  name: transit-tracker-cycling
+  friendly_name: Transit Tracker (Cycling)
 
 esp32:
   variant: esp32s3
@@ -80,13 +80,12 @@ color:
 transit_tracker:
   id: tracker
   base_url: "wss://tt.horner.tj/"
-  limit: 3
+  limit: 6
   feed_code: "st"
 
-  # Optional: Cycle through trips instead of showing them all at once
-  # Uncomment these to show 1 trip at a time, cycling every 5 seconds
-  # trips_per_page: 1
-  # page_cycle_duration: 5s
+  # TEST: Enable page cycling - show 1 trip at a time, cycling every 5 seconds
+  trips_per_page: 1
+  page_cycle_duration: 5s
 
   stops:
     - stop_id: "1_71971" # Redmond Way & Bear Creek Pkwy

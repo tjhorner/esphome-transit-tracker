@@ -63,6 +63,11 @@ transit_tracker:
   # If true, headsign text will scroll if it doesn't fit
   scroll_headsigns: false
 
+  # Page cycling: Show a subset of trips at a time, cycling through pages
+  # If not set, all trips up to 'limit' are shown at once (default behavior)
+  trips_per_page: 3  # Number of trips to show per page (optional)
+  page_cycle_duration: 5s  # How long to show each page before cycling to the next
+
   # List of stop and route IDs to track
   stops:
     - stop_id: "1_71971"
@@ -92,6 +97,38 @@ transit_tracker:
     - from: "Transit Center"
       to: "TC"
 ```
+
+### Page Cycling Feature
+
+The `trips_per_page` and `page_cycle_duration` options allow you to cycle through trips instead of showing them all at once. This is useful when:
+
+- **You have limited vertical space** and want to show fewer trips with larger text
+- **You're tracking many routes** and want to paginate through them
+- **You want to focus attention** on one or two trips at a time
+
+**Example use cases:**
+
+1. **Cycle between individual trips** (e.g., northbound vs southbound):
+   ```yaml
+   limit: 10  # Fetch up to 10 trips
+   trips_per_page: 1  # Show 1 trip at a time
+   page_cycle_duration: 5s  # Switch every 5 seconds
+   ```
+
+2. **Show trips in groups of 2**:
+   ```yaml
+   limit: 6  # Fetch up to 6 trips
+   trips_per_page: 2  # Show 2 trips at a time
+   page_cycle_duration: 8s  # Switch every 8 seconds
+   ```
+
+3. **Default behavior** (no cycling):
+   ```yaml
+   limit: 3  # Fetch and show 3 trips
+   # trips_per_page not set = show all trips at once
+   ```
+
+**Note:** When `trips_per_page` is not set or is greater than/equal to `limit`, all trips are shown at once (backward compatible with previous versions).
 
 Then, finally, in your display's draw lambda:
 
