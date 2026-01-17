@@ -20,7 +20,7 @@ class Localization {
     void set_unit_display(UnitDisplay unit_display) { unit_display_ = unit_display; }
     void set_now_string(const std::string &now_string) { now_string_ = now_string; }
     void set_minutes_long_string(const std::string &minutes_long_string) { minutes_long_string_ = minutes_long_string; }
-    void set_minutes_short_string(const std::string &minutes_long_string) { minutes_long_string_ = minutes_long_string; }
+    void set_minutes_short_string(const std::string &minutes_short_string) { minutes_short_string_ = minutes_short_string; }
     void set_hours_short_string(const std::string &hours_short_string) { hours_short_string_ = hours_short_string; }
 
   protected:
