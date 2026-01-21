@@ -17,6 +17,9 @@ class Trip {
     time_t arrival_time;
     time_t departure_time;
     bool is_realtime;
+    // Number of trips remaining after this one for the same route/stop today.
+    // -1 if not available from API
+    int remaining_trips;
 };
 
 class ScheduleState {

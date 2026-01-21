@@ -69,6 +69,14 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
   ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
   ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
+  ESP_LOGCONFIG(TAG, "  Show Remaining Trips: %s", this->show_remaining_trips_ ? "true" : "false");
+
+  if (this->trips_per_page_ > 0) {
+    ESP_LOGCONFIG(TAG, "  Trips per page: %d", this->trips_per_page_);
+    ESP_LOGCONFIG(TAG, "  Page cycle duration: %dms", this->page_cycle_duration_);
+  } else {
+    ESP_LOGCONFIG(TAG, "  Page cycling: disabled (showing all trips)");
+  }
 }
 
 void TransitTracker::reconnect() {
@@ -134,6 +142,13 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         route_color = Color(std::stoul(trip["routeColor"].as<std::string>(), nullptr, 16));
       }
 
+      // Parse remaining trips count from API (optional field)
+      // Default to -1 if not provided, indicating the data is unavailable
+      int remaining_trips = -1;
+      if (!trip["remainingTrips"].isNull()) {
+        remaining_trips = trip["remainingTrips"].as<int>();
+      }
+
       this->schedule_state_.trips.push_back({
         .route_id = route_id,
         .route_name = route_name,
@@ -142,6 +157,7 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         .arrival_time = trip["arrivalTime"].as<time_t>(),
         .departure_time = trip["departureTime"].as<time_t>(),
         .is_realtime = trip["isRealtime"].as<bool>(),
+        .remaining_trips = remaining_trips,
       });
     }
 
@@ -353,12 +369,28 @@ void TransitTracker::draw_trip(
     int time_width;
     this->font_->measure(time_display.c_str(), &time_width, &_, &_, &_);
 
+    // Calculate width for remaining trips indicator if enabled and data is available
+    std::string remaining_trips_text = "";
+    int remaining_trips_width = 0;
+    if (this->show_remaining_trips_ && trip.remaining_trips >= 0) {
+      remaining_trips_text = "(-" + std::to_string(trip.remaining_trips) + ")";
+      this->font_->measure(remaining_trips_text.c_str(), &remaining_trips_width, &_, &_, &_);
+      remaining_trips_width += 2;  // Add 2px spacing
+    }
+
     int headsign_clipping_start = route_width + 3;
-    int headsign_clipping_end = this->display_->get_width() - time_width - 2;
+    int headsign_clipping_end = this->display_->get_width() - time_width - remaining_trips_width - 2;
 
     if (!no_draw) {
       Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
       this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
+
+      // Display remaining trips indicator to the left of the time
+      if (this->show_remaining_trips_ && trip.remaining_trips >= 0) {
+        Color remaining_color = trip.remaining_trips == 0 ? Color(0xFF6B00) : Color(0xa7a7a7);  // Orange for last trip
+        int remaining_x = this->display_->get_width() - time_width - remaining_trips_width + 1;
+        this->display_->print(remaining_x, y_offset, this->font_, remaining_color, display::TextAlign::TOP_LEFT, remaining_trips_text.c_str());
+      }
     }
 
     if (trip.is_realtime) {
@@ -467,13 +499,35 @@ void HOT TransitTracker::draw_schedule() {
   unsigned long uptime = millis();
   uint rtc_now = this->rtc_->now().timestamp;
 
+  // Determine how many trips to show per page
+  // If trips_per_page_ is not set (== -1), use limit_ to show all trips (backward compatible)
+  int trips_per_page = (this->trips_per_page_ > 0) ? this->trips_per_page_ : this->limit_;
+
+  // Calculate which page to show based on uptime
+  // Pages cycle automatically based on page_cycle_duration_
+  int total_trips = this->schedule_state_.trips.size();
+  int num_pages = (total_trips + trips_per_page - 1) / trips_per_page;  // ceiling division
+  int current_page = 0;
+  if (num_pages > 1) {
+    // Cycle through pages: page index changes every page_cycle_duration_ milliseconds
+    current_page = (uptime / this->page_cycle_duration_) % num_pages;
+  }
+
+  // Calculate which trips to show on this page
+  // For example, if trips_per_page=2 and current_page=1, show trips at indices 2-3
+  int start_index = current_page * trips_per_page;
+  int end_index = std::min(start_index + trips_per_page, total_trips);
+
+  // Calculate scroll cycle duration for headsigns (if enabled)
   int scroll_cycle_duration = 0;
   if (this->scroll_headsigns_) {
     int largest_headsign_overflow = 0;
-    for (const Trip &trip : this->schedule_state_.trips) {
+    // Only measure the trips that will be visible on this page
+    for (int i = start_index; i < end_index; i++) {
+      const Trip &trip = this->schedule_state_.trips[i];
       int headsign_overflow;
       this->draw_trip(trip, 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
-      largest_headsign_overflow = max(largest_headsign_overflow, headsign_overflow);
+      largest_headsign_overflow = std::max(largest_headsign_overflow, headsign_overflow);
     }
 
     if (largest_headsign_overflow > 0) {
@@ -482,10 +536,16 @@ void HOT TransitTracker::draw_schedule() {
     }
   }
 
-  int max_trips_height = (this->limit_ * this->font_->get_ascender()) + ((this->limit_ - 1) * this->font_->get_descender());
-  int y_offset = (this->display_->get_height() % max_trips_height) / 2;
+  // Calculate vertical centering for this page's trips
+  // Center the visible trips on the display to avoid them being stuck at the top
+  int visible_trip_count = end_index - start_index;
+  int max_trips_height = (visible_trip_count * this->font_->get_ascender()) +
+                         ((visible_trip_count - 1) * this->font_->get_descender());
+  int y_offset = (this->display_->get_height() - max_trips_height) / 2;
 
-  for (const Trip &trip : this->schedule_state_.trips) {
+  // Draw only the trips for this page
+  for (int i = start_index; i < end_index; i++) {
+    const Trip &trip = this->schedule_state_.trips[i];
     this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
   }
