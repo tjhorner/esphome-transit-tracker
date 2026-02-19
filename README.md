@@ -53,6 +53,9 @@ transit_tracker:
   # (See https://esphome.io/components/display/#color)
   default_route_color: my_favorite_color
 
+  # Color for real-time indicator icon and text
+  realtime_color: my_second_favorite_color
+
   # How to display the duration units.
   # Examples:
   #   long  = "5min" / "1h15m"

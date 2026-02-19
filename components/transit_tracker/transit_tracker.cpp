@@ -285,6 +285,15 @@ void TransitTracker::draw_text_centered_(const char *text, Color color) {
   this->display_->print(display_center_x, display_center_y, this->font_, color, display::TextAlign::CENTER, text);
 }
 
+void TransitTracker::set_realtime_color(const Color &color) {
+  this->realtime_color_ = color;
+  this->realtime_color_dark_ = Color(
+    (color.r * 0.5),
+    (color.g * 0.5),
+    (color.b * 0.5)
+  );
+}
+
 const uint8_t realtime_icon[6][6] = {
   {0, 0, 0, 3, 3, 3},
   {0, 0, 3, 0, 0, 0},
@@ -318,9 +327,6 @@ void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_righ
     }
   };
 
-  const Color lit_color = Color(0x20FF00);
-  const Color unlit_color = Color(0x00A700);
-
   for (uint8_t i = 0; i < 6; ++i) {
     for (uint8_t j = 0; j < 6; ++j) {
       uint8_t segment_number = realtime_icon[i][j];
@@ -328,7 +334,7 @@ void HOT TransitTracker::draw_realtime_icon_(int bottom_right_x, int bottom_righ
         continue;
       }
 
-      Color icon_color = is_segment_lit(segment_number) ? lit_color : unlit_color;
+      Color icon_color = is_segment_lit(segment_number) ? this->realtime_color_ : this->realtime_color_dark_;
       this->display_->draw_pixel_at(bottom_right_x - (5 - j), bottom_right_y - (5 - i), icon_color);
     }
   }
@@ -357,7 +363,7 @@ void TransitTracker::draw_trip(
     int headsign_clipping_end = this->display_->get_width() - time_width - 2;
 
     if (!no_draw) {
-      Color time_color = trip.is_realtime ? Color(0x20FF00) : Color(0xa7a7a7);
+      Color time_color = trip.is_realtime ? this->realtime_color_ : Color(0xa7a7a7);
       this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
     }
 

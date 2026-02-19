@@ -31,6 +31,7 @@ CONF_ABBREVIATIONS = "abbreviations"
 CONF_STYLES = "styles"
 CONF_FEED_CODE = "feed_code"
 CONF_DEFAULT_ROUTE_COLOR = "default_route_color"
+CONF_REALTIME_COLOR = "realtime_color"
 CONF_TIME_DISPLAY = "time_display"
 CONF_LIST_MODE = "list_mode"
 CONF_SCROLL_HEADSIGNS = "scroll_headsigns"
@@ -82,6 +83,7 @@ CONFIG_SCHEMA = cv.All(
             ),
             cv.Optional(CONF_SHOW_UNITS, default="long"): cv.enum(UNIT_DISPLAY_VALUES),
             cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
+            cv.Optional(CONF_REALTIME_COLOR): cv.use_id(color.ColorStruct),
             cv.Optional(CONF_STYLES): cv.ensure_list(
                 cv.Schema(
                     {
@@ -150,6 +152,13 @@ async def to_code(config):
         cg.add(
             var.set_default_route_color(
                 await cg.get_variable(config[CONF_DEFAULT_ROUTE_COLOR])
+            )
+        )
+
+    if CONF_REALTIME_COLOR in config:
+        cg.add(
+            var.set_realtime_color(
+                await cg.get_variable(config[CONF_REALTIME_COLOR])
             )
         )
 

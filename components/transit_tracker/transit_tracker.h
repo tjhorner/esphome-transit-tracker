@@ -55,6 +55,8 @@ class TransitTracker : public Component {
     void set_abbreviations_from_text(const std::string &text);
     void set_route_styles_from_text(const std::string &text);
 
+    void set_realtime_color(const Color &color);
+
   protected:
     static constexpr int scroll_speed = 10; // pixels/second
     static constexpr int idle_time_left = 5000;
@@ -97,6 +99,9 @@ class TransitTracker : public Component {
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;
     bool scroll_headsigns_ = false;
+
+    Color realtime_color_ = Color(0x20FF00);
+    Color realtime_color_dark_ = Color(0x00A700);
 };
 
 
