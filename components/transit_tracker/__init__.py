@@ -10,7 +10,7 @@ from esphome.types import ConfigType
 
 _MINIMUM_ESPHOME_VERSION = "2025.11.0"
 
-DEPENDENCIES = ["network"]
+DEPENDENCIES = ["network", "display", "font", "time"]
 AUTO_LOAD = ["json", "watchdog"]
 
 transit_tracker_ns = cg.esphome_ns.namespace("transit_tracker")
