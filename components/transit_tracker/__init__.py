@@ -5,7 +5,7 @@ from esphome.components.display import Display
 from esphome.components.font import Font
 from esphome.components.time import RealTimeClock
 from esphome.components import color
-from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS, __version__ as ESPHOME_VERSION
+from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS, __version__ as ESPHOME_VERSION, Framework
 from esphome.types import ConfigType
 
 _MINIMUM_ESPHOME_VERSION = "2025.11.0"
@@ -64,6 +64,7 @@ def _consume_transit_tracker_sockets(config: ConfigType) -> ConfigType:
 
 CONFIG_SCHEMA = cv.All(
     validate_esphome_version,
+    cv.only_with_framework(frameworks=Framework.ARDUINO),
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(TransitTracker),
