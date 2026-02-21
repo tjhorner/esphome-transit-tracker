@@ -91,15 +91,22 @@ CONFIG_SCHEMA = cv.All(
                 )
             ),
             cv.Optional(CONF_SHOW_UNITS, default="long"): cv.enum(UNIT_DISPLAY_VALUES),
-            cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
-            cv.Optional(CONF_REALTIME_COLOR): cv.use_id(color.ColorStruct),
-            cv.Optional(CONF_STYLES): cv.ensure_list(
-                cv.Schema(
-                    {
-                        cv.Required("route_id"): cv.string,
-                        cv.Required("name"): cv.string,
-                        cv.Required("color"): cv.use_id(color.ColorStruct),
-                    }
+            cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.All(
+                            cv.requires_component("color"), cv.use_id(color.ColorStruct)
+                        ),
+            cv.Optional(CONF_REALTIME_COLOR): cv.All(
+                            cv.requires_component("color"), cv.use_id(color.ColorStruct)
+                        ),
+            cv.Optional(CONF_STYLES): cv.All(
+                cv.requires_component("color"),
+                cv.ensure_list(
+                    cv.Schema(
+                        {
+                            cv.Required("route_id"): cv.string,
+                            cv.Required("name"): cv.string,
+                            cv.Required("color"): cv.use_id(color.ColorStruct),
+                        }
+                    )
                 )
             ),
             cv.Optional(CONF_ABBREVIATIONS): cv.ensure_list(
