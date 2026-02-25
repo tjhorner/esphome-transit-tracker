@@ -55,6 +55,13 @@ def validate_esphome_version(obj):
     return obj
 
 
+def _consume_transit_tracker_sockets(config: ConfigType) -> ConfigType:
+    """Register socket needs for transit_tracker component."""
+    from esphome.components import socket
+    socket.consume_sockets(1, "transit_tracker")(config)
+    return config
+
+
 CONFIG_SCHEMA = cv.All(
     validate_esphome_version,
     cv.Schema(
@@ -106,13 +113,6 @@ CONFIG_SCHEMA = cv.All(
     ).extend(cv.COMPONENT_SCHEMA),
     _consume_transit_tracker_sockets,
 )
-
-
-def _consume_transit_tracker_sockets(config: ConfigType) -> ConfigType:
-    """Register socket needs for transit_tracker component."""
-    from esphome.components import socket
-    socket.consume_sockets(1, "transit_tracker")(config)
-    return config
 
 
 def _generate_schedule_string(stops):
