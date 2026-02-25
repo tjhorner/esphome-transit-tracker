@@ -171,6 +171,7 @@ async def to_code(config):
 
     cg.add_library("NetworkClientSecure", None)
     cg.add_library("HTTPClient", None)
+    cg.add_library("WiFi", None) # Dependency of ArduinoWebsockets
 
     # Fork contains patch for TLS issue - https://github.com/gilmaimon/ArduinoWebsockets/pull/142
     cg.add_library(
