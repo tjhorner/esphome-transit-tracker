@@ -5,12 +5,12 @@ from esphome.components.display import Display
 from esphome.components.font import Font
 from esphome.components.time import RealTimeClock
 from esphome.components import color
-from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS, __version__ as ESPHOME_VERSION
+from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS, __version__ as ESPHOME_VERSION, Framework
 from esphome.types import ConfigType
 
 _MINIMUM_ESPHOME_VERSION = "2025.11.0"
 
-DEPENDENCIES = ["network"]
+DEPENDENCIES = ["network", "display", "font", "time"]
 AUTO_LOAD = ["json", "watchdog"]
 
 transit_tracker_ns = cg.esphome_ns.namespace("transit_tracker")
@@ -64,6 +64,7 @@ def _consume_transit_tracker_sockets(config: ConfigType) -> ConfigType:
 
 CONFIG_SCHEMA = cv.All(
     validate_esphome_version,
+    cv.only_with_framework(frameworks=Framework.ARDUINO),
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(TransitTracker),
@@ -90,15 +91,22 @@ CONFIG_SCHEMA = cv.All(
                 )
             ),
             cv.Optional(CONF_SHOW_UNITS, default="long"): cv.enum(UNIT_DISPLAY_VALUES),
-            cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.use_id(color.ColorStruct),
-            cv.Optional(CONF_REALTIME_COLOR): cv.use_id(color.ColorStruct),
-            cv.Optional(CONF_STYLES): cv.ensure_list(
-                cv.Schema(
-                    {
-                        cv.Required("route_id"): cv.string,
-                        cv.Required("name"): cv.string,
-                        cv.Required("color"): cv.use_id(color.ColorStruct),
-                    }
+            cv.Optional(CONF_DEFAULT_ROUTE_COLOR): cv.All(
+                            cv.requires_component("color"), cv.use_id(color.ColorStruct)
+                        ),
+            cv.Optional(CONF_REALTIME_COLOR): cv.All(
+                            cv.requires_component("color"), cv.use_id(color.ColorStruct)
+                        ),
+            cv.Optional(CONF_STYLES): cv.All(
+                cv.requires_component("color"),
+                cv.ensure_list(
+                    cv.Schema(
+                        {
+                            cv.Required("route_id"): cv.string,
+                            cv.Required("name"): cv.string,
+                            cv.Required("color"): cv.use_id(color.ColorStruct),
+                        }
+                    )
                 )
             ),
             cv.Optional(CONF_ABBREVIATIONS): cv.ensure_list(
