@@ -26,7 +26,9 @@ You will need these components in your configuration:
 - [Font](https://esphome.io/components/font/)
 - [Time](https://esphome.io/components/time/)
 
-Then you can define an instance of the component like so (this is a complete example; most parameters are optional, and defaults are shown here):
+Then you can define an instance of the component in your YAML configuration. The easiest way to generate the configuration is with the [configurator tool](https://transit-tracker.eastsideurbanism.org/configurator). Once you've set the options you want, press "Generate YAML" at the bottom and paste the generated text into your configuration.
+
+Here is is a complete example; most parameters are optional:
 
 ```yaml
 transit_tracker:
