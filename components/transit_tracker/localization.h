@@ -25,7 +25,7 @@ class Localization {
 
   protected:
     UnitDisplay unit_display_ = UNIT_DISPLAY_LONG;
-    std::string now_string_ = "Now";
+    std::string now_string_ = "Już";
     std::string minutes_long_string_ = "min";
     std::string minutes_short_string_ = "m";
     std::string hours_short_string_ = "h";

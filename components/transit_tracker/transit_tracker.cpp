@@ -433,34 +433,34 @@ void HOT TransitTracker::draw_schedule() {
   }
 
   if (!esphome::network::is_connected()) {
-    this->draw_text_centered_("Waiting for network", Color(0x252627));
+    this->draw_text_centered_("Oczekiwanie na sieć", Color(0x252627));
     return;
   }
 
   if (!this->rtc_->now().is_valid()) {
-    this->draw_text_centered_("Waiting for time sync", Color(0x252627));
+    this->draw_text_centered_("Synchronizacja czasu", Color(0x252627));
     return;
   }
 
   if (this->base_url_.empty()) {
-    this->draw_text_centered_("No base URL set", Color(0x252627));
+    this->draw_text_centered_("Brak URL", Color(0x252627));
     return;
   }
 
   if (this->status_has_error()) {
-    this->draw_text_centered_("Error loading schedule", Color(0xFE4C5C));
+    this->draw_text_centered_("Błąd ładowania odjazdów", Color(0xFE4C5C));
     return;
   }
 
   if (!this->has_ever_connected_) {
-    this->draw_text_centered_("Loading...", Color(0x252627));
+    this->draw_text_centered_("Ładowanie...", Color(0x252627));
     return;
   }
 
   if (this->schedule_state_.trips.empty()) {
-    auto message = "No upcoming arrivals";
+    auto message = "Brak przyjazdów";
     if (this->display_departure_times_) {
-      message = "No upcoming departures";
+      message = "Brak odjazdów";
     }
 
     this->draw_text_centered_(message, Color(0x252627));
