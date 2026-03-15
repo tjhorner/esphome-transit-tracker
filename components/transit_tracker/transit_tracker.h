@@ -45,6 +45,8 @@ class TransitTracker : public Component {
     void set_schedule_string(const std::string &schedule_string) { schedule_string_ = schedule_string; }
     void set_list_mode(const std::string &list_mode) { list_mode_ = list_mode; }
     void set_limit(int limit) { limit_ = limit; }
+    void set_trips(int trips) { trips_ = trips; }
+    void set_page_duration(uint32_t page_duration) { page_duration_ = page_duration; }
     void set_scroll_headsigns(bool scroll_headsigns) { scroll_headsigns_ = scroll_headsigns; }
 
     void set_unit_display(UnitDisplay unit_display) { this->localization_.set_unit_display(unit_display); }
@@ -94,6 +96,8 @@ class TransitTracker : public Component {
     std::string list_mode_;
     bool display_departure_times_ = true;
     int limit_;
+    int trips_;
+    uint32_t page_duration_ = 10000;
 
     std::map<std::string, std::string> abbreviations_;
     Color default_route_color_ = Color(0x028e51);

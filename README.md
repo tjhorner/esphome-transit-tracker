@@ -40,8 +40,14 @@ transit_tracker:
   # The feed code of the transit agency you want to track (optional)
   feed_code: "st"
 
-  # Maximum number of arrivals to show
+  # Maximum number of arrivals to show at once
   limit: 3
+
+  # Total number of trips to fetch from the server. If greater than 'limit', trips are split across multiple pages
+  trips: 3
+
+  # Duration each page of trips is displayed before switching to the next
+  page_duration: 15s
 
   # Whether to display arrival or departure times
   time_display: departure # or "arrival"

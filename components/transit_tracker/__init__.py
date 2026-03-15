@@ -28,6 +28,8 @@ CONF_STOPS = "stops"
 CONF_BASE_URL = "base_url"
 CONF_FONT_ID = "font_id"
 CONF_LIMIT = "limit"
+CONF_TRIPS = "trips"
+CONF_PAGE_DURATION = "page_duration"
 CONF_ABBREVIATIONS = "abbreviations"
 CONF_STYLES = "styles"
 CONF_FEED_CODE = "feed_code"
@@ -79,6 +81,8 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(CONF_TIME_ID): cv.use_id(RealTimeClock),
             cv.Optional(CONF_BASE_URL): validate_ws_url,
             cv.Optional(CONF_LIMIT, default=3): cv.positive_int,
+            cv.Optional(CONF_TRIPS, default=3): cv.positive_int,
+            cv.Optional(CONF_PAGE_DURATION, default="10s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_FEED_CODE, default=""): cv.string,
             cv.Optional(CONF_TIME_DISPLAY, default="departure"): cv.one_of(
                 "departure", "arrival"
@@ -157,6 +161,8 @@ async def to_code(config):
     cg.add(var.set_scroll_headsigns(config[CONF_SCROLL_HEADSIGNS]))
 
     cg.add(var.set_limit(config[CONF_LIMIT]))
+    cg.add(var.set_trips(config[CONF_TRIPS]))
+    cg.add(var.set_page_duration(config[CONF_PAGE_DURATION]))
 
     cg.add(var.set_unit_display(config[CONF_SHOW_UNITS]))
 

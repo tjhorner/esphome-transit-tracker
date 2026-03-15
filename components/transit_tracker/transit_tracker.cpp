@@ -66,6 +66,8 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  Base URL: %s", this->base_url_.c_str());
   ESP_LOGCONFIG(TAG, "  Schedule: %s", this->schedule_string_.c_str());
   ESP_LOGCONFIG(TAG, "  Limit: %d", this->limit_);
+  ESP_LOGCONFIG(TAG, "  Trips: %d", this->trips_);
+  ESP_LOGCONFIG(TAG, "  Page duration: %u ms", this->page_duration_);
   ESP_LOGCONFIG(TAG, "  List mode: %s", this->list_mode_.c_str());
   ESP_LOGCONFIG(TAG, "  Display departure times: %s", this->display_departure_times_ ? "true" : "false");
   ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
@@ -170,7 +172,11 @@ void TransitTracker::on_ws_event_(websockets::WebsocketsEvent event, String data
       }
 
       data["routeStopPairs"] = this->schedule_string_;
-      data["limit"] = this->limit_;
+      if (this->trips_ > this->limit_) {
+        data["limit"] = this->trips_;
+      } else {
+        data["limit"] = this->limit_;
+      }
       data["sortByDeparture"] = this->display_departure_times_;
       data["listMode"] = this->list_mode_;
     });
@@ -473,12 +479,20 @@ void HOT TransitTracker::draw_schedule() {
   unsigned long uptime = millis();
   uint rtc_now = this->rtc_->now().timestamp;
 
+  int total_trips = this->schedule_state_.trips.size();
+  // Division rounding up to determine total pages
+  int total_pages = (total_trips + this->limit_ - 1) / this->limit_;
+  int current_page = (uptime / this->page_duration_) % total_pages;
+
+  int start_idx = current_page * this->limit_;
+  int end_idx = std::min(start_idx + this->limit_, total_trips);
+
   int scroll_cycle_duration = 0;
   if (this->scroll_headsigns_) {
     int largest_headsign_overflow = 0;
-    for (const Trip &trip : this->schedule_state_.trips) {
+    for (int i = start_idx; i < end_idx; ++i) {
       int headsign_overflow;
-      this->draw_trip(trip, 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
+      this->draw_trip(this->schedule_state_.trips[i], 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
       largest_headsign_overflow = max(largest_headsign_overflow, headsign_overflow);
     }
 
@@ -491,8 +505,8 @@ void HOT TransitTracker::draw_schedule() {
   int max_trips_height = (this->limit_ * this->font_->get_ascender()) + ((this->limit_ - 1) * this->font_->get_descender());
   int y_offset = (this->display_->get_height() % max_trips_height) / 2;
 
-  for (const Trip &trip : this->schedule_state_.trips) {
-    this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
+  for (int i = start_idx; i < end_idx; ++i) {
+    this->draw_trip(this->schedule_state_.trips[i], y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
   }
 
