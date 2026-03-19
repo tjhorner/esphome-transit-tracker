@@ -151,7 +151,7 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
   });
 
   if (!valid) {
-    this->status_set_error("Failed to parse schedule data");
+    this->status_set_error(LOG_STR("Failed to parse schedule data"));
     return;
   }
 }
@@ -163,7 +163,7 @@ void TransitTracker::on_ws_event_(websockets::WebsocketsEvent event, String data
     auto message = json::build_json([this](JsonObject root) {
       root["event"] = "schedule:subscribe";
 
-      auto data = root.createNestedObject("data");
+      auto data = root["data"].to<JsonObject>();
 
       if (!this->feed_code_.empty()) {
         data["feedCode"] = this->feed_code_;
@@ -224,7 +224,7 @@ void TransitTracker::connect_ws_() {
     this->connection_attempts_++;
 
     if (this->connection_attempts_ >= 3) {
-      this->status_set_error("Failed to connect to WebSocket server");
+      this->status_set_error(LOG_STR("Failed to connect to WebSocket server"));
     }
 
     if (this->connection_attempts_ >= 15) {
