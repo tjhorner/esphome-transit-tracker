@@ -1,63 +1,86 @@
 #include "transit_tracker.h"
 #include "string_utils.h"
 
+#include "esp_heap_caps.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
 #include "esphome/components/json/json_util.h"
-#include "esphome/components/watchdog/watchdog.h"
 #include "esphome/components/network/util.h"
 
 namespace esphome {
 namespace transit_tracker {
 
-static const char *TAG = "transit_tracker.component";
+static const char *const TAG = "transit_tracker.component";
+
+static constexpr int CONNECT_FAILURE_ERROR_THRESHOLD = 3;
+static constexpr int CONNECT_FAILURE_REBOOT_THRESHOLD = 15;
+static constexpr unsigned long HEARTBEAT_TIMEOUT_MS = 60000;
+static constexpr int STALE_TRIP_SECONDS = 60;
 
 void TransitTracker::setup() {
-  this->ws_client_.onMessage([this](websockets::WebsocketsMessage message) {
-    this->on_ws_message_(message);
+  this->ws_client_.set_on_message([this](const std::string &payload) {
+    this->handle_message_(payload);
   });
 
-  this->ws_client_.onEvent([this](websockets::WebsocketsEvent event, String data) {
-    this->on_ws_event_(event, data);
+  this->ws_client_.set_on_connected([this]() {
+    // defer the actual subscribe send and status update to loop()
+    this->has_ever_connected_ = true;
+    this->consecutive_disconnects_ = 0;
+    this->pending_subscribe_ = true;
   });
 
-  this->connect_ws_();
+  this->ws_client_.set_on_disconnected([this]() {
+    this->on_disconnect_();
+  });
+
+  if (this->base_url_.empty()) {
+    ESP_LOGW(TAG, "No base URL set; websocket will not start");
+  } else {
+    this->ws_client_.set_uri(this->base_url_);
+    this->ws_client_.start();
+  }
 
   this->set_interval("check_stale_trips", 10000, [this]() {
-    if (this->ws_client_.available() && !this->schedule_state_.trips.empty()) {
-      bool has_stale_trips = false;
+    if (!this->ws_client_.is_connected()) {
+      return;
+    }
 
-      this->schedule_state_.mutex.lock();
+    auto now = this->rtc_->now();
+    if (!now.is_valid()) {
+      return;
+    }
 
-      auto now = this->rtc_->now();
-      if (now.is_valid()) {
-        for (auto &trip : this->schedule_state_.trips) {
-          if (now.timestamp - trip.departure_time > 60) {
-            has_stale_trips = true;
-            break;
-          }
+    bool has_stale_trips = false;
+    {
+      std::lock_guard<std::mutex> lock(this->schedule_state_.mutex);
+      for (const auto &trip : this->schedule_state_.trips) {
+        if (now.timestamp - trip.departure_time > STALE_TRIP_SECONDS) {
+          has_stale_trips = true;
+          break;
         }
       }
+    }
 
-      this->schedule_state_.mutex.unlock();
-
-      if (has_stale_trips) {
-        ESP_LOGD(TAG, "Stale trips detected, reconnecting");
-        ESP_LOGD(TAG, "  Current RTC time: %d", now.timestamp);
-        ESP_LOGD(TAG, "  Last heartbeat: %d", this->last_heartbeat_);
-        this->reconnect();
-      }
+    if (has_stale_trips) {
+      ESP_LOGW(TAG, "Stale trips detected (rtc=%d, last_heartbeat=%lu, uptime=%lu)",
+               now.timestamp, this->last_heartbeat_.load(), millis());
+      this->reconnect("stale trips");
     }
   });
 }
 
 void TransitTracker::loop() {
-  this->ws_client_.poll();
+  if (this->pending_subscribe_.exchange(false)) {
+    this->status_clear_error();
+    this->send_subscribe_();
+  }
 
-  if (this->last_heartbeat_ != 0 && millis() - this->last_heartbeat_ > 60000) {
-    ESP_LOGW(TAG, "Heartbeat timeout, reconnecting");
-    this->reconnect();
-    return;
+  unsigned long heartbeat = this->last_heartbeat_.load();
+  if (heartbeat != 0 && millis() - heartbeat > HEARTBEAT_TIMEOUT_MS) {
+    ESP_LOGW(TAG, "No heartbeat for %lu ms (last_heartbeat=%lu, uptime=%lu)",
+             millis() - heartbeat, heartbeat, millis());
+    this->last_heartbeat_ = 0;
+    this->reconnect("heartbeat timeout");
   }
 }
 
@@ -71,17 +94,22 @@ void TransitTracker::dump_config() {
   ESP_LOGCONFIG(TAG, "  Scroll Headsigns: %s", this->scroll_headsigns_ ? "true" : "false");
 }
 
-void TransitTracker::reconnect() {
-  this->close();
-  this->connect_ws_();
+void TransitTracker::reconnect(const char *reason) {
+  if (this->fully_closed_) {
+    return;
+  }
+
+  ESP_LOGI(TAG, "Reconnecting websocket (reason: %s)", reason);
+  this->last_heartbeat_ = 0;
+  this->ws_client_.stop();
+  this->ws_client_.start();
 }
 
 void TransitTracker::close(bool fully) {
   if (fully) {
     this->fully_closed_ = true;
   }
-
-  this->ws_client_.close();
+  this->ws_client_.stop();
 }
 
 void TransitTracker::on_shutdown() {
@@ -89,34 +117,79 @@ void TransitTracker::on_shutdown() {
   this->close(true);
 }
 
-void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
-  ESP_LOGV(TAG, "Received message: %s", message.rawData().c_str());
+void TransitTracker::on_disconnect_() {
+  if (this->fully_closed_) {
+    return;
+  }
 
-  bool valid = json::parse_json(message.rawData(), [this](JsonObject root) -> bool {
-    if (root["event"].as<std::string>() == "heartbeat") {
+  int attempts = ++this->consecutive_disconnects_;
+  ESP_LOGW(TAG, "Websocket disconnected (consecutive=%d, network_connected=%s, free_heap=%u)",
+           attempts, esphome::network::is_connected() ? "yes" : "no",
+           static_cast<unsigned>(esp_get_free_heap_size()));
+
+  if (attempts >= CONNECT_FAILURE_ERROR_THRESHOLD) {
+    this->status_set_error(LOG_STR("Failed to connect to WebSocket server"));
+  }
+
+  if (attempts >= CONNECT_FAILURE_REBOOT_THRESHOLD) {
+    ESP_LOGE(TAG, "Could not connect to WebSocket server within %d attempts; rebooting to recover",
+             CONNECT_FAILURE_REBOOT_THRESHOLD);
+    App.reboot();
+  }
+}
+
+void TransitTracker::send_subscribe_() {
+  auto message = json::build_json([this](JsonObject root) {
+    root["event"] = "schedule:subscribe";
+
+    auto data = root["data"].to<JsonObject>();
+    if (!this->feed_code_.empty()) {
+      data["feedCode"] = this->feed_code_;
+    }
+    data["routeStopPairs"] = this->schedule_string_;
+    data["limit"] = this->limit_;
+    data["sortByDeparture"] = this->display_departure_times_;
+    data["listMode"] = this->list_mode_;
+  });
+
+  ESP_LOGD(TAG, "Subscribing (%u bytes)", static_cast<unsigned>(message.size()));
+  ESP_LOGV(TAG, "Subscribe payload: %s", message.c_str());
+  if (!this->ws_client_.send_text(message)) {
+    ESP_LOGW(TAG, "Subscribe send failed");
+  }
+}
+
+void TransitTracker::handle_message_(const std::string &payload) {
+  ESP_LOGV(TAG, "Received message (%u bytes): %s", static_cast<unsigned>(payload.size()), payload.c_str());
+
+  bool valid = json::parse_json(payload, [this, &payload](JsonObject root) -> bool {
+    auto event = root["event"].as<std::string>();
+
+    if (event == "heartbeat") {
       ESP_LOGD(TAG, "Received heartbeat");
       this->last_heartbeat_ = millis();
       return true;
     }
 
-    if (root["event"].as<std::string>() != "schedule") {
+    if (event != "schedule") {
+      ESP_LOGW(TAG, "Ignoring unknown event '%s' (%u bytes)", event.c_str(),
+               static_cast<unsigned>(payload.size()));
       return true;
     }
 
-    ESP_LOGD(TAG, "Received schedule update");
+    ESP_LOGD(TAG, "Received schedule update (%u bytes)", static_cast<unsigned>(payload.size()));
 
-    this->schedule_state_.mutex.lock();
-
-    this->schedule_state_.trips.clear();
-
+    std::vector<Trip> new_trips;
     auto data = root["data"].as<JsonObject>();
+    auto trip_array = data["trips"].as<JsonArray>();
+    new_trips.reserve(trip_array.size());
 
-    for (auto trip : data["trips"].as<JsonArray>()) {
+    for (auto trip : trip_array) {
       std::string headsign = trip["headsign"].as<std::string>();
       for (const auto &abbr : this->abbreviations_) {
         size_t pos = headsign.find(abbr.first);
         if (pos != std::string::npos) {
-          ESP_LOGV(TAG, "Applying abbreviation '%s' -> '%s' in headsign", abbr.first.c_str(), abbr.second.c_str());
+          ESP_LOGV(TAG, "Applying abbreviation '%s' -> '%s'", abbr.first.c_str(), abbr.second.c_str());
           headsign.replace(pos, abbr.first.length(), abbr.second);
         }
       }
@@ -134,7 +207,7 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
         route_color = Color(std::stoul(trip["routeColor"].as<std::string>(), nullptr, 16));
       }
 
-      this->schedule_state_.trips.push_back({
+      new_trips.push_back({
         .route_id = route_id,
         .route_name = route_name,
         .route_color = route_color,
@@ -145,104 +218,18 @@ void TransitTracker::on_ws_message_(websockets::WebsocketsMessage message) {
       });
     }
 
-    this->schedule_state_.mutex.unlock();
+    {
+      std::lock_guard<std::mutex> lock(this->schedule_state_.mutex);
+      this->schedule_state_.trips = std::move(new_trips);
+    }
 
     return true;
   });
 
   if (!valid) {
+    ESP_LOGW(TAG, "Failed to parse message (%u bytes); preview: %.120s",
+             static_cast<unsigned>(payload.size()), payload.c_str());
     this->status_set_error(LOG_STR("Failed to parse schedule data"));
-    return;
-  }
-}
-
-void TransitTracker::on_ws_event_(websockets::WebsocketsEvent event, String data) {
-  if (event == websockets::WebsocketsEvent::ConnectionOpened) {
-    ESP_LOGD(TAG, "WebSocket connection opened");
-
-    auto message = json::build_json([this](JsonObject root) {
-      root["event"] = "schedule:subscribe";
-
-      auto data = root["data"].to<JsonObject>();
-
-      if (!this->feed_code_.empty()) {
-        data["feedCode"] = this->feed_code_;
-      }
-
-      data["routeStopPairs"] = this->schedule_string_;
-      data["limit"] = this->limit_;
-      data["sortByDeparture"] = this->display_departure_times_;
-      data["listMode"] = this->list_mode_;
-    });
-
-    ESP_LOGV(TAG, "Sending message: %s", message.c_str());
-    this->ws_client_.send(message.c_str());
-  } else if (event == websockets::WebsocketsEvent::ConnectionClosed) {
-    ESP_LOGD(TAG, "WebSocket connection closed");
-    if (!this->fully_closed_ && this->connection_attempts_ == 0) {
-      this->defer([this]() {
-        this->connect_ws_();
-      });
-    }
-  } else if (event == websockets::WebsocketsEvent::GotPing) {
-    ESP_LOGV(TAG, "Received ping");
-  } else if (event == websockets::WebsocketsEvent::GotPong) {
-    ESP_LOGV(TAG, "Received pong");
-  }
-}
-
-void TransitTracker::connect_ws_() {
-  if (this->base_url_.empty()) {
-    ESP_LOGW(TAG, "No base URL set, not connecting");
-    return;
-  }
-
-  if (this->fully_closed_) {
-    ESP_LOGW(TAG, "Connection fully closed, not reconnecting");
-    return;
-  }
-
-  if (this->ws_client_.available(true)) {
-    ESP_LOGV(TAG, "Not reconnecting, already connected");
-    return;
-  }
-
-  watchdog::WatchdogManager wdm(20000);
-
-  this->last_heartbeat_ = 0;
-
-  ESP_LOGD(TAG, "Connecting to WebSocket server (attempt %d): %s", this->connection_attempts_, this->base_url_.c_str());
-
-  bool connection_success = false;
-  if (esphome::network::is_connected()) {
-    connection_success = this->ws_client_.connect(this->base_url_.c_str());
-  } else {
-    ESP_LOGW(TAG, "Not connected to network; skipping connection attempt");
-  }
-
-  if (!connection_success) {
-    this->connection_attempts_++;
-
-    if (this->connection_attempts_ >= 3) {
-      this->status_set_error(LOG_STR("Failed to connect to WebSocket server"));
-    }
-
-    if (this->connection_attempts_ >= 15) {
-      ESP_LOGE(TAG, "Could not connect to WebSocket server within 15 attempts.");
-      ESP_LOGE(TAG, "It's likely that the network is not truly connected; rebooting the device to try to recover.");
-      App.reboot();
-    }
-
-    auto timeout = std::min(15000, this->connection_attempts_ * 5000);
-    ESP_LOGW(TAG, "Failed to connect, retrying in %ds", timeout / 1000);
-
-    this->set_timeout("reconnect", timeout, [this]() {
-      this->connect_ws_();
-    });
-  } else {
-    this->has_ever_connected_ = true;
-    this->connection_attempts_ = 0;
-    this->status_clear_error();
   }
 }
 
@@ -452,22 +439,18 @@ void HOT TransitTracker::draw_schedule() {
     return;
   }
 
-  if (!this->has_ever_connected_) {
+  if (!this->has_ever_connected_.load()) {
     this->draw_text_centered_("Loading...", Color(0x252627));
     return;
   }
 
-  if (this->schedule_state_.trips.empty()) {
-    auto message = "No upcoming arrivals";
-    if (this->display_departure_times_) {
-      message = "No upcoming departures";
-    }
+  std::lock_guard<std::mutex> lock(this->schedule_state_.mutex);
 
+  if (this->schedule_state_.trips.empty()) {
+    auto message = this->display_departure_times_ ? "No upcoming departures" : "No upcoming arrivals";
     this->draw_text_centered_(message, Color(0x252627));
     return;
   }
-
-  this->schedule_state_.mutex.lock();
 
   int nominal_font_height = this->font_->get_ascender() + this->font_->get_descender();
   unsigned long uptime = millis();
@@ -479,7 +462,7 @@ void HOT TransitTracker::draw_schedule() {
     for (const Trip &trip : this->schedule_state_.trips) {
       int headsign_overflow;
       this->draw_trip(trip, 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
-      largest_headsign_overflow = max(largest_headsign_overflow, headsign_overflow);
+      largest_headsign_overflow = std::max(largest_headsign_overflow, headsign_overflow);
     }
 
     if (largest_headsign_overflow > 0) {
@@ -495,8 +478,6 @@ void HOT TransitTracker::draw_schedule() {
     this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
   }
-
-  this->schedule_state_.mutex.unlock();
 }
 
 }  // namespace transit_tracker

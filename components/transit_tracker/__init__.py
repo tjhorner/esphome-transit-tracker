@@ -1,17 +1,20 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components.http_request import CONF_HTTP_REQUEST_ID, HttpRequestComponent
 from esphome.components.display import Display
 from esphome.components.font import Font
 from esphome.components.time import RealTimeClock
 from esphome.components import color
-from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS, __version__ as ESPHOME_VERSION, Framework
+from esphome.const import CONF_ID, CONF_DISPLAY_ID, CONF_TIME_ID, CONF_SHOW_UNITS, __version__ as ESPHOME_VERSION
 from esphome.types import ConfigType
+from esphome.components import esp32
+from esphome.components.esp32 import (
+    add_idf_component,
+)
 
 _MINIMUM_ESPHOME_VERSION = "2025.11.0"
 
-DEPENDENCIES = ["network", "display", "font", "time"]
-AUTO_LOAD = ["json", "watchdog"]
+DEPENDENCIES = ["network", "display", "font", "time", "esp32"]
+AUTO_LOAD = ["json"]
 
 transit_tracker_ns = cg.esphome_ns.namespace("transit_tracker")
 TransitTracker = transit_tracker_ns.class_("TransitTracker", cg.Component)
@@ -70,7 +73,7 @@ COLOR_SCHEMA = cv.All(
 
 CONFIG_SCHEMA = cv.All(
     validate_esphome_version,
-    cv.only_with_framework(frameworks=Framework.ARDUINO),
+    cv.only_on_esp32,
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(TransitTracker),
@@ -185,11 +188,9 @@ async def to_code(config):
 
     await cg.register_component(var, config)
 
-    cg.add_library("NetworkClientSecure", None)
-    cg.add_library("HTTPClient", None)
-    cg.add_library("WiFi", None) # Dependency of ArduinoWebsockets
-
-    # Fork contains patch for TLS issue - https://github.com/gilmaimon/ArduinoWebsockets/pull/142
-    cg.add_library(
-        "ArduinoWebsockets", None, "https://github.com/tjhorner/ArduinoWebsockets"
+    add_idf_component(
+        name="espressif/esp_websocket_client",
+        ref="1.7.0",
     )
+
+    esp32.add_idf_sdkconfig_option("CONFIG_MBEDTLS_CERTIFICATE_BUNDLE", True)

@@ -1,7 +1,7 @@
 #pragma once
 
+#include <atomic>
 #include <map>
-#include <ArduinoWebsockets.h>
 
 #include "esphome/core/component.h"
 #include "esphome/components/display/display.h"
@@ -10,6 +10,7 @@
 
 #include "schedule_state.h"
 #include "localization.h"
+#include "websocket_client.h"
 
 namespace esphome {
 namespace transit_tracker {
@@ -28,7 +29,7 @@ class TransitTracker : public Component {
 
     float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
-    void reconnect();
+    void reconnect(const char *reason);
     void close(bool fully = false);
 
     void draw_schedule();
@@ -78,15 +79,17 @@ class TransitTracker : public Component {
     font::Font *font_;
     time::RealTimeClock *rtc_;
 
-    websockets::WebsocketsClient ws_client_{};
+    WebSocketClient ws_client_;
 
-    void on_ws_message_(websockets::WebsocketsMessage message);
-    void on_ws_event_(websockets::WebsocketsEvent event, String data);
-    void connect_ws_();
-    int connection_attempts_ = 0;
-    unsigned long last_heartbeat_ = 0;
-    bool has_ever_connected_ = false;
-    bool fully_closed_ = false;
+    void handle_message_(const std::string &payload);
+    void send_subscribe_();
+    void on_disconnect_();
+
+    std::atomic<int> consecutive_disconnects_{0};
+    std::atomic<unsigned long> last_heartbeat_{0};
+    std::atomic<bool> has_ever_connected_{false};
+    std::atomic<bool> pending_subscribe_{false};
+    std::atomic<bool> fully_closed_{false};
 
     std::string base_url_;
     std::string feed_code_;

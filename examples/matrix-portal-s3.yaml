@@ -1,5 +1,5 @@
 esphome:
-  name: transit-tracker
+  name: transit-tracker-s3
   friendly_name: Transit Tracker
 
 esp32:
@@ -7,7 +7,7 @@ esp32:
   flash_size: 8MB
   cpu_frequency: 240MHz
   framework:
-    type: arduino
+    type: esp-idf
 
 psram:
   mode: quad
