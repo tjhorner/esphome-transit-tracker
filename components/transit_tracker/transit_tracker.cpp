@@ -102,7 +102,13 @@ void TransitTracker::reconnect(const char *reason) {
   ESP_LOGI(TAG, "Reconnecting websocket (reason: %s)", reason);
   this->last_heartbeat_ = 0;
   this->ws_client_.stop();
-  this->ws_client_.start();
+
+  if (this->base_url_.empty()) {
+    ESP_LOGW(TAG, "Base URL is not set - cannot reconnect");
+  } else {
+    this->ws_client_.set_uri(this->base_url_); 
+    this->ws_client_.start();
+  }
 }
 
 void TransitTracker::close(bool fully) {
