@@ -4,6 +4,7 @@
     "esphome-src/esphome",
     "examples/.esphome/build/transit-tracker/.piolibdeps/transit-tracker/ArduinoWebsockets/src"
   ],
+  "editor.formatOnSave": false,
   "files.associations": {
     "*.ejs": "html",
     "*.scss": "postcss",

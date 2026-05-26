@@ -337,86 +337,86 @@ void TransitTracker::draw_trip(
     const Trip &trip, int y_offset, int font_height, unsigned long uptime, uint rtc_now,
     bool no_draw, int *headsign_overflow_out, int scroll_cycle_duration
 ) {
-    if (!no_draw) {
-      this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
+  if (!no_draw) {
+    this->display_->print(0, y_offset, this->font_, trip.route_color, display::TextAlign::TOP_LEFT, trip.route_name.c_str());
+  }
+
+  int route_width, _;
+  this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
+
+  auto time_display = this->localization_.fmt_duration_from_now(
+    this->display_departure_times_ ? trip.departure_time : trip.arrival_time,
+    rtc_now
+  );
+
+  int time_width;
+  this->font_->measure(time_display.c_str(), &time_width, &_, &_, &_);
+
+  int headsign_clipping_start = route_width + 3;
+  int headsign_clipping_end = this->display_->get_width() - time_width - 2;
+
+  if (!no_draw) {
+    Color time_color = trip.is_realtime ? this->realtime_color_ : Color(0xa7a7a7);
+    this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
+  }
+
+  if (trip.is_realtime) {
+    headsign_clipping_end -= 8;
+
+    if(!no_draw) {
+      int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
+      int icon_bottom_right_y = y_offset + font_height - 6;
+
+      this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y, uptime);
     }
+  }
 
-    int route_width, _;
-    this->font_->measure(trip.route_name.c_str(), &route_width, &_, &_, &_);
+  int headsign_max_width = headsign_clipping_end - headsign_clipping_start;
 
-    auto time_display = this->localization_.fmt_duration_from_now(
-      this->display_departure_times_ ? trip.departure_time : trip.arrival_time,
-      rtc_now
-    );
+  int headsign_actual_width;
+  this->font_->measure(trip.headsign.c_str(), &headsign_actual_width, &_, &_, &_);
 
-    int time_width;
-    this->font_->measure(time_display.c_str(), &time_width, &_, &_, &_);
+  int headsign_overflow = headsign_actual_width - headsign_max_width;
+  if (headsign_overflow_out) {
+    *headsign_overflow_out = headsign_overflow;
+  }
 
-    int headsign_clipping_start = route_width + 3;
-    int headsign_clipping_end = this->display_->get_width() - time_width - 2;
+  if (no_draw) {
+    return;
+  }
 
-    if (!no_draw) {
-      Color time_color = trip.is_realtime ? this->realtime_color_ : Color(0xa7a7a7);
-      this->display_->print(this->display_->get_width() + 1, y_offset, this->font_, time_color, display::TextAlign::TOP_RIGHT, time_display.c_str());
+  int scroll_offset = 0;
+  if (headsign_overflow > 0 && scroll_cycle_duration > 0) {
+    /// Note: The scroll may jump if headsign_clipping_end changes (e.g. due to the width of the arrival time changing).
+    /// This is probably not a big deal, since the display makes sudden changes anyway (e.g. when routes are updated)
+    /// and this happens relatively infrequently.
+
+    int scroll_time = headsign_overflow * 1000 / scroll_speed;
+    int scroll_cycle_time = uptime % scroll_cycle_duration;
+
+    // Scroll idle (left side - default)
+    if(scroll_cycle_time < idle_time_left) {
+      // scroll_offset = 0; do nothing
+    } else if (scroll_cycle_time < idle_time_left + scroll_time) {
+      // Scrolling left
+      int time_since_scroll_start = scroll_cycle_time - idle_time_left;
+      scroll_offset = time_since_scroll_start * scroll_speed / 1000;
+    } else if (scroll_cycle_time < idle_time_left + scroll_time + idle_time_right) {
+      // Scroll idle (right side)
+      scroll_offset = headsign_overflow;
+    } else if (scroll_cycle_time < idle_time_left + 2 * scroll_time + idle_time_right){
+      // Scrolling right
+      int time_since_scroll_start = scroll_cycle_time - (idle_time_left + scroll_time + idle_time_right);
+      scroll_offset = headsign_overflow - (time_since_scroll_start * scroll_speed / 1000);
+    } else {
+      // Waiting for other headsigns to finish scrolling
+      // scroll_offset = 0; do nothing
     }
+  }
 
-    if (trip.is_realtime) {
-      headsign_clipping_end -= 8;
-
-      if(!no_draw) {
-        int icon_bottom_right_x = this->display_->get_width() - time_width - 2;
-        int icon_bottom_right_y = y_offset + font_height - 6;
-
-        this->draw_realtime_icon_(icon_bottom_right_x, icon_bottom_right_y, uptime);
-      }
-    }
-
-    int headsign_max_width = headsign_clipping_end - headsign_clipping_start;
-
-    int headsign_actual_width;
-    this->font_->measure(trip.headsign.c_str(), &headsign_actual_width, &_, &_, &_);
-
-    int headsign_overflow = headsign_actual_width - headsign_max_width;
-    if (headsign_overflow_out) {
-      *headsign_overflow_out = headsign_overflow;
-    }
-
-    if (no_draw) {
-      return;
-    }
-
-    int scroll_offset = 0;
-    if (headsign_overflow > 0 && scroll_cycle_duration > 0) {
-      /// Note: The scroll may jump if headsign_clipping_end changes (e.g. due to the width of the arrival time changing).
-      /// This is probably not a big deal, since the display makes sudden changes anyway (e.g. when routes are updated)
-      /// and this happens relatively infrequently.
-
-      int scroll_time = headsign_overflow * 1000 / scroll_speed;
-      int scroll_cycle_time = uptime % scroll_cycle_duration;
-
-      // Scroll idle (left side - default)
-      if(scroll_cycle_time < idle_time_left) {
-        // scroll_offset = 0; do nothing
-      } else if (scroll_cycle_time < idle_time_left + scroll_time) {
-        // Scrolling left
-        int time_since_scroll_start = scroll_cycle_time - idle_time_left;
-        scroll_offset = time_since_scroll_start * scroll_speed / 1000;
-      } else if (scroll_cycle_time < idle_time_left + scroll_time + idle_time_right) {
-        // Scroll idle (right side)
-        scroll_offset = headsign_overflow;
-      } else if (scroll_cycle_time < idle_time_left + 2 * scroll_time + idle_time_right){
-        // Scrolling right
-        int time_since_scroll_start = scroll_cycle_time - (idle_time_left + scroll_time + idle_time_right);
-        scroll_offset = headsign_overflow - (time_since_scroll_start * scroll_speed / 1000);
-      } else {
-        // Waiting for other headsigns to finish scrolling
-        // scroll_offset = 0; do nothing
-      }
-    }
-
-    this->display_->start_clipping(headsign_clipping_start, 0, headsign_clipping_end, this->display_->get_height());
-    this->display_->print(headsign_clipping_start - scroll_offset, y_offset, this->font_, trip.headsign.c_str());
-    this->display_->end_clipping();
+  this->display_->start_clipping(headsign_clipping_start, 0, headsign_clipping_end, this->display_->get_height());
+  this->display_->print(headsign_clipping_start - scroll_offset, y_offset, this->font_, trip.headsign.c_str());
+  this->display_->end_clipping();
 }
 
 void HOT TransitTracker::draw_schedule() {
