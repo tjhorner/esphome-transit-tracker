@@ -29,6 +29,7 @@ class TransitTracker : public Component {
 
     float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
+    bool is_connected() const { return this->ws_client_.is_connected(); }
     void reconnect(const char *reason);
     void close(bool fully = false);
 

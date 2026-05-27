@@ -69,7 +69,7 @@ bool WebSocketClient::start() {
     cfg.network_timeout_ms = network_timeout_ms_;
     cfg.buffer_size = buffer_size_;
     cfg.disable_auto_reconnect = false;
-    cfg.disable_pingpong_discon = true; // handle heartbeats ourselves
+    cfg.disable_pingpong_discon = false;
     cfg.keep_alive_enable = true;
     cfg.keep_alive_idle = 5;
     cfg.keep_alive_interval = 5;

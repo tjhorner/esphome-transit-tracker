@@ -24,6 +24,7 @@ void TransitTracker::setup() {
 
   this->ws_client_.set_on_connected([this]() {
     // defer the actual subscribe send and status update to loop()
+    this->last_heartbeat_ = millis();
     this->has_ever_connected_ = true;
     this->consecutive_disconnects_ = 0;
     this->pending_subscribe_ = true;
