@@ -1,6 +1,8 @@
 #include "transit_tracker.h"
 #include "string_utils.h"
 
+#include <cstdlib>
+
 #include "esp_heap_caps.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
@@ -16,6 +18,19 @@ static constexpr int CONNECT_FAILURE_ERROR_THRESHOLD = 3;
 static constexpr int CONNECT_FAILURE_REBOOT_THRESHOLD = 15;
 static constexpr unsigned long HEARTBEAT_TIMEOUT_MS = 60000;
 static constexpr int STALE_TRIP_SECONDS = 60;
+
+static bool parse_hex_color(const std::string &str, uint32_t &out) {
+  if (str.empty()) {
+    return false;
+  }
+  char *end = nullptr;
+  unsigned long value = std::strtoul(str.c_str(), &end, 16);
+  if (end == str.c_str() || *end != '\0') {
+    return false;
+  }
+  out = static_cast<uint32_t>(value);
+  return true;
+}
 
 void TransitTracker::setup() {
   this->ws_client_.set_on_message([this](const std::string &payload) {
@@ -211,7 +226,14 @@ void TransitTracker::handle_message_(const std::string &payload) {
         route_color = route_style->second.color;
         route_name = route_style->second.name;
       } else if (!trip["routeColor"].isNull()) {
-        route_color = Color(std::stoul(trip["routeColor"].as<std::string>(), nullptr, 16));
+        auto color_str = trip["routeColor"].as<std::string>();
+        uint32_t parsed_color;
+        if (parse_hex_color(color_str, parsed_color)) {
+          route_color = Color(parsed_color);
+        } else if (!color_str.empty()) {
+          ESP_LOGW(TAG, "Ignoring invalid routeColor '%s' for route %s",
+                   color_str.c_str(), route_id.c_str());
+        }
       }
 
       new_trips.push_back({
@@ -268,7 +290,11 @@ void TransitTracker::set_route_styles_from_text(const std::string &text) {
       ESP_LOGW(TAG, "Invalid route style line: %s", line.c_str());
       continue;
     }
-    uint32_t color = std::stoul(parts[2], nullptr, 16);
+    uint32_t color;
+    if (!parse_hex_color(parts[2], color)) {
+      ESP_LOGW(TAG, "Invalid route style color '%s' in line: %s", parts[2].c_str(), line.c_str());
+      continue;
+    }
     this->add_route_style(parts[0], parts[1], Color(color));
   }
 }
