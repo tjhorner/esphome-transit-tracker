@@ -6,6 +6,8 @@
 
 #include "esp_heap_caps.h"
 #include "esp_idf_version.h"
+#include "mbedtls/sha256.h"
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
 #include "esphome/components/json/json_util.h"
@@ -20,6 +22,18 @@ static constexpr int CONNECT_FAILURE_ERROR_THRESHOLD = 3;
 static constexpr int CONNECT_FAILURE_REBOOT_THRESHOLD = 15;
 static constexpr unsigned long HEARTBEAT_TIMEOUT_MS = 60000;
 static constexpr int STALE_TRIP_SECONDS = 60;
+
+static std::string compute_device_id() {
+  uint8_t mac[6];
+  esphome::get_mac_address_raw(mac);
+  uint8_t hash[32];
+  mbedtls_sha256(mac, sizeof(mac), hash, 0);
+  char hex[65];
+  for (int i = 0; i < 32; i++) {
+    snprintf(hex + i * 2, 3, "%02x", hash[i]);
+  }
+  return std::string(hex);
+}
 
 static bool parse_hex_color(const std::string &str, uint32_t &out) {
   if (str.empty()) {
@@ -54,13 +68,25 @@ void TransitTracker::setup() {
   {
     std::string user_agent;
     std::string headers;
+    bool has_device_id = false;
     for (const auto &h : this->extra_headers_) {
       if (strcasecmp(h.first.c_str(), "user-agent") == 0) {
         user_agent = h.second;
       } else {
+        if (strcasecmp(h.first.c_str(), "x-device-id") == 0) {
+          has_device_id = true;
+        }
         headers += h.first + ": " + h.second + "\r\n";
       }
     }
+
+    if (!has_device_id) {
+      auto device_id = compute_device_id();
+      if (!device_id.empty()) {
+        headers += "X-Device-Id: " + device_id + "\r\n";
+      }
+    }
+
     if (user_agent.empty()) {
 #ifdef ESPHOME_PROJECT_NAME
       user_agent = ESPHOME_PROJECT_NAME "/" ESPHOME_PROJECT_VERSION
@@ -69,6 +95,7 @@ void TransitTracker::setup() {
       user_agent = "ESPHome/" ESPHOME_VERSION " (" ESPHOME_VARIANT ") esp-idf/" IDF_VER;
 #endif
     }
+
     this->ws_client_.set_user_agent(user_agent);
     this->ws_client_.set_headers(headers);
   }
