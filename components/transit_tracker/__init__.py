@@ -39,6 +39,7 @@ CONF_REALTIME_COLOR = "realtime_color"
 CONF_TIME_DISPLAY = "time_display"
 CONF_LIST_MODE = "list_mode"
 CONF_SCROLL_HEADSIGNS = "scroll_headsigns"
+CONF_HEADERS = "headers"
 
 
 def validate_ws_url(value):
@@ -119,6 +120,14 @@ CONFIG_SCHEMA = cv.All(
                     }
                 )
             ),
+            cv.Optional(CONF_HEADERS): cv.ensure_list(
+                cv.Schema(
+                    {
+                        cv.Required("name"): cv.string,
+                        cv.Required("value"): cv.string,
+                    }
+                )
+            ),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     _consume_transit_tracker_sockets,
@@ -162,6 +171,10 @@ async def to_code(config):
     cg.add(var.set_limit(config[CONF_LIMIT]))
 
     cg.add(var.set_unit_display(config[CONF_SHOW_UNITS]))
+
+    if CONF_HEADERS in config:
+        for header in config[CONF_HEADERS]:
+            cg.add(var.add_header(header["name"], header["value"]))
 
     if CONF_ABBREVIATIONS in config:
         for abbreviation in config[CONF_ABBREVIATIONS]:

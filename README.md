@@ -37,6 +37,11 @@ transit_tracker:
   # Base URL of the Transit Tracker API
   base_url: "wss://tt.horner.tj/"
 
+  # Additional headers to send in the HTTP request
+  headers:
+    - name: "X-Hello"
+      value: "world"
+
   # The feed code of the transit agency you want to track (optional)
   feed_code: "st"
 

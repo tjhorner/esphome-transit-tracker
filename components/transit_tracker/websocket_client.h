@@ -21,6 +21,8 @@ class WebSocketClient {
   WebSocketClient &operator=(const WebSocketClient &) = delete;
 
   void set_uri(const std::string &uri) { uri_ = uri; }
+  void set_user_agent(const std::string &user_agent) { user_agent_ = user_agent; }
+  void set_headers(const std::string &headers) { headers_ = headers; }
   void set_reconnect_timeout_ms(int ms) { reconnect_timeout_ms_ = ms; }
   void set_network_timeout_ms(int ms) { network_timeout_ms_ = ms; }
   void set_buffer_size(int bytes) { buffer_size_ = bytes; }
@@ -40,6 +42,8 @@ class WebSocketClient {
 
   esp_websocket_client_handle_t client_{nullptr};
   std::string uri_;
+  std::string user_agent_;
+  std::string headers_;
   int reconnect_timeout_ms_{5000};
   int network_timeout_ms_{10000};
   int buffer_size_{4096};

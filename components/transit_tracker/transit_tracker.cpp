@@ -2,8 +2,10 @@
 #include "string_utils.h"
 
 #include <cstdlib>
+#include <strings.h>
 
 #include "esp_heap_caps.h"
+#include "esp_idf_version.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
 #include "esphome/components/json/json_util.h"
@@ -48,6 +50,28 @@ void TransitTracker::setup() {
   this->ws_client_.set_on_disconnected([this]() {
     this->on_disconnect_();
   });
+
+  {
+    std::string user_agent;
+    std::string headers;
+    for (const auto &h : this->extra_headers_) {
+      if (strcasecmp(h.first.c_str(), "user-agent") == 0) {
+        user_agent = h.second;
+      } else {
+        headers += h.first + ": " + h.second + "\r\n";
+      }
+    }
+    if (user_agent.empty()) {
+#ifdef ESPHOME_PROJECT_NAME
+      user_agent = ESPHOME_PROJECT_NAME "/" ESPHOME_PROJECT_VERSION
+                   " ESPHome/" ESPHOME_VERSION " (" ESPHOME_VARIANT ") esp-idf/" IDF_VER;
+#else
+      user_agent = "ESPHome/" ESPHOME_VERSION " (" ESPHOME_VARIANT ") esp-idf/" IDF_VER;
+#endif
+    }
+    this->ws_client_.set_user_agent(user_agent);
+    this->ws_client_.set_headers(headers);
+  }
 
   if (this->base_url_.empty()) {
     ESP_LOGW(TAG, "No base URL set; websocket will not start");

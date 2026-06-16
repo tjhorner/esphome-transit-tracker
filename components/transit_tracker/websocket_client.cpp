@@ -65,6 +65,8 @@ bool WebSocketClient::start() {
   if (client_ == nullptr) {
     esp_websocket_client_config_t cfg = {};
     cfg.uri = uri_.c_str();
+    cfg.user_agent = user_agent_.empty() ? nullptr : user_agent_.c_str();
+    cfg.headers = headers_.empty() ? nullptr : headers_.c_str();
     cfg.reconnect_timeout_ms = reconnect_timeout_ms_;
     cfg.network_timeout_ms = network_timeout_ms_;
     cfg.buffer_size = buffer_size_;

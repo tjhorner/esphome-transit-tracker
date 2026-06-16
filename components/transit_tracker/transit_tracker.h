@@ -2,6 +2,8 @@
 
 #include <atomic>
 #include <map>
+#include <utility>
+#include <vector>
 
 #include "esphome/core/component.h"
 #include "esphome/components/display/display.h"
@@ -51,6 +53,7 @@ class TransitTracker : public Component {
 
     void set_unit_display(UnitDisplay unit_display) { this->localization_.set_unit_display(unit_display); }
     void add_abbreviation(const std::string &from, const std::string &to) { abbreviations_[from] = to; }
+    void add_header(const std::string &name, const std::string &value) { extra_headers_.emplace_back(name, value); }
     void set_default_route_color(const Color &color) { default_route_color_ = color; }
     void add_route_style(const std::string &route_id, const std::string &name, const Color &color) { route_styles_[route_id] = RouteStyle{name, color}; }
 
@@ -99,6 +102,7 @@ class TransitTracker : public Component {
     bool display_departure_times_ = true;
     int limit_;
 
+    std::vector<std::pair<std::string, std::string>> extra_headers_;
     std::map<std::string, std::string> abbreviations_;
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;
