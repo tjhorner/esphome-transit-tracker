@@ -70,6 +70,7 @@ bool WebSocketClient::start() {
     cfg.reconnect_timeout_ms = reconnect_timeout_ms_;
     cfg.network_timeout_ms = network_timeout_ms_;
     cfg.buffer_size = buffer_size_;
+    cfg.enable_close_reconnect = true;
     cfg.disable_auto_reconnect = false;
     cfg.disable_pingpong_discon = false;
     cfg.keep_alive_enable = true;

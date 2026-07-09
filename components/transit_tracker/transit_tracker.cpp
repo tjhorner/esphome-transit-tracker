@@ -131,7 +131,6 @@ void TransitTracker::setup() {
     if (has_stale_trips) {
       ESP_LOGW(TAG, "Stale trips detected (rtc=%d, last_heartbeat=%lu, uptime=%lu)",
                now.timestamp, this->last_heartbeat_.load(), millis());
-      this->reconnect("stale trips");
     }
   });
 }
@@ -147,7 +146,6 @@ void TransitTracker::loop() {
     ESP_LOGW(TAG, "No heartbeat for %lu ms (last_heartbeat=%lu, uptime=%lu)",
              millis() - heartbeat, heartbeat, millis());
     this->last_heartbeat_ = 0;
-    this->reconnect("heartbeat timeout");
   }
 }
 
