@@ -40,7 +40,7 @@ CONF_TIME_DISPLAY = "time_display"
 CONF_LIST_MODE = "list_mode"
 CONF_SCROLL_HEADSIGNS = "scroll_headsigns"
 CONF_HEADERS = "headers"
-
+CONF_HEADER_TEXT = "header_text"
 
 def validate_ws_url(value):
     url = cv.url(value)
@@ -100,6 +100,7 @@ CONFIG_SCHEMA = cv.All(
                     }
                 )
             ),
+            cv.Optional(CONF_HEADER_TEXT, default=""): cv.string,
             cv.Optional(CONF_SHOW_UNITS, default="long"): cv.enum(UNIT_DISPLAY_VALUES),
             cv.Optional(CONF_DEFAULT_ROUTE_COLOR): COLOR_SCHEMA,
             cv.Optional(CONF_REALTIME_COLOR): COLOR_SCHEMA,
@@ -169,6 +170,9 @@ async def to_code(config):
     cg.add(var.set_scroll_headsigns(config[CONF_SCROLL_HEADSIGNS]))
 
     cg.add(var.set_limit(config[CONF_LIMIT]))
+
+    if CONF_HEADER_TEXT in config:
+        cg.add(var.set_header_text(config[CONF_HEADER_TEXT]))
 
     cg.add(var.set_unit_display(config[CONF_SHOW_UNITS]))
 

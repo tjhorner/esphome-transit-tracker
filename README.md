@@ -88,6 +88,9 @@ transit_tracker:
       routes:
         - "1_102548"
 
+  # Add a static string to the top of the display
+  header_text: "Upcoming Departures"
+
   # List of custom styles for route names and colors
   styles:
     - route_id: "1_102548"

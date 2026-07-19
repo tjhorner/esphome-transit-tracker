@@ -51,6 +51,7 @@ class TransitTracker : public Component {
     void set_limit(int limit) { limit_ = limit; }
     void set_scroll_headsigns(bool scroll_headsigns) { scroll_headsigns_ = scroll_headsigns; }
 
+    void set_header_text(const std::string &header_text) { header_text_ = header_text; }
     void set_unit_display(UnitDisplay unit_display) { this->localization_.set_unit_display(unit_display); }
     void add_abbreviation(const std::string &from, const std::string &to) { abbreviations_[from] = to; }
     void add_header(const std::string &name, const std::string &value) { extra_headers_.emplace_back(name, value); }
@@ -96,13 +97,14 @@ class TransitTracker : public Component {
     std::atomic<bool> fully_closed_{false};
 
     std::string base_url_;
+    std::vector<std::pair<std::string, std::string>> extra_headers_;
     std::string feed_code_;
     std::string schedule_string_;
     std::string list_mode_;
     bool display_departure_times_ = true;
     int limit_;
 
-    std::vector<std::pair<std::string, std::string>> extra_headers_;
+    std::string header_text_;
     std::map<std::string, std::string> abbreviations_;
     Color default_route_color_ = Color(0x028e51);
     std::map<std::string, RouteStyle> route_styles_;
