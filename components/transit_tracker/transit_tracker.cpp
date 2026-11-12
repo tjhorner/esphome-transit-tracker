@@ -528,20 +528,44 @@ void HOT TransitTracker::draw_schedule() {
 
   std::lock_guard<std::mutex> lock(this->schedule_state_.mutex);
 
-  if (this->schedule_state_.trips.empty()) {
-    auto message = this->display_departure_times_ ? "No upcoming departures" : "No upcoming arrivals";
-    this->draw_text_centered_(message, Color(0x252627));
+  uint rtc_now = this->rtc_->now().timestamp;
+
+  // Filter out trips arriving/departing in less than 8 minutes
+  const int MIN_ARRIVAL_MINUTES = 8;
+
+  std::vector<const Trip *> filtered_trips;
+
+  for (const auto &trip : this->schedule_state_.trips) {
+    time_t target_time = this->display_departure_times_
+        ? trip.departure_time
+        : trip.arrival_time;
+
+    int minutes_remaining =
+        static_cast<int>((target_time - rtc_now) / 60);
+
+    if (minutes_remaining < MIN_ARRIVAL_MINUTES) {
+      continue;
+    }
+
+    filtered_trips.push_back(&trip);
+  }
+
+  int display_count = std::min(
+      static_cast<int>(filtered_trips.size()), this->limit_);
+
+  if (display_count == 0) {
+    this->draw_text_centered_("No matching arrivals", Color(0x252627));
     return;
   }
 
   int nominal_font_height = this->font_->get_ascender() + this->font_->get_descender();
   unsigned long uptime = millis();
-  uint rtc_now = this->rtc_->now().timestamp;
 
   int scroll_cycle_duration = 0;
   if (this->scroll_headsigns_) {
     int largest_headsign_overflow = 0;
-    for (const Trip &trip : this->schedule_state_.trips) {
+    for (int i = 0; i < display_count; i++) {
+      const Trip &trip = *filtered_trips[i];
       int headsign_overflow;
       this->draw_trip(trip, 0, nominal_font_height, uptime, rtc_now, true, &headsign_overflow);
       largest_headsign_overflow = std::max(largest_headsign_overflow, headsign_overflow);
@@ -553,7 +577,9 @@ void HOT TransitTracker::draw_schedule() {
     }
   }
 
-  int max_trips_height = (this->limit_ * this->font_->get_ascender()) + ((this->limit_ - 1) * this->font_->get_descender());
+  int max_trips_height =
+      (display_count * this->font_->get_ascender()) +
+      ((display_count - 1) * this->font_->get_descender());
   int y_offset = (this->display_->get_height() % max_trips_height) / 2;
 
   bool has_header_text = !this->header_text_.empty();
@@ -562,7 +588,8 @@ void HOT TransitTracker::draw_schedule() {
     y_offset += nominal_font_height;
   }
 
-  for (const Trip &trip : this->schedule_state_.trips) {
+  for (int i = 0; i < display_count; i++) {
+    const Trip &trip = *filtered_trips[i];
     this->draw_trip(trip, y_offset, nominal_font_height, uptime, rtc_now, false, nullptr, scroll_cycle_duration);
     y_offset += nominal_font_height;
   }

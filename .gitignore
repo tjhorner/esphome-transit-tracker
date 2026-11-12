@@ -1,1 +1,7 @@
-**/__pycache__/
+# ESPHome secrets
+secrets.yaml
+
+# ESPHome generated files
+.esphome/
+*.bin
+*.elf

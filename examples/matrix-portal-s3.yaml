@@ -29,9 +29,9 @@ ota:
     password: ""
 
 wifi:
-  ssid: "ReplaceMe"
-  password: "ReplaceMe!"
-  power_save_mode: "NONE"
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: NONE
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -71,30 +71,34 @@ time:
     timezone: America/Los_Angeles
 
 color:
-  - id: rapidride_red
-    hex: "F50046"
+  - id: "c_28813F"
+    hex: "28813F"
+  - id: "c_007CAD"
+    hex: "007CAD"
 
 transit_tracker:
   id: tracker
   base_url: "wss://tt.horner.tj/"
   limit: 3
-  feed_code: "st"
+  time_display: "arrival"
+  show_units: "short"
+  list_mode: "sequential"
+  scroll_headsigns: false
+  min_arrival_minutes: 8
   stops:
-    - stop_id: "1_71971" # Redmond Way & Bear Creek Pkwy
-      time_offset: -8min
+    - stop_id: "st:40_99610"
       routes:
-        - "1_100113" # 221
-        - "1_102704" # 250
-    - stop_id: "1_71961" # RTC
-      time_offset: -10min
+        - "st:40_100479"
+        - "st:40_2LINE"
+    - stop_id: "st:40_99603"
       routes:
-        - "1_102548" # B Line
+        - "st:40_2LINE"
+        - "st:40_100479"
   styles:
-    - route_id: "1_102548"
-      name: "B"
-      color: rapidride_red
-  abbreviations:
-    - from: "Bellevue Transit Center Crossroads"
-      to: "Bellevue TC"
-    - from: "Transit Center"
-      to: "TC"
+    - route_id: "st:40_100479"
+      name: "1"
+      color: "c_28813F"
+    - route_id: "st:40_2LINE"
+      name: "2"
+      color: "c_007CAD"
+  abbreviations: []
