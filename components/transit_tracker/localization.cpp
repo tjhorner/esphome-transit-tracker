@@ -1,4 +1,5 @@
 #include "localization.h"
+#include "esphome/core/alloc_helpers.h"
 
 namespace esphome {
 namespace transit_tracker {
